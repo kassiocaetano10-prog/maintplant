@@ -1,20 +1,12 @@
 import React, { useState } from 'react';
 
-const Agenda = ({ orders, setOrders, zones, onNewOrder, valves, vstatus }) => {
+const Agenda = ({ orders, onDeleteOrder, zones, onNewOrder, valves, vstatus }) => {
   const [tab, setTab] = useState('orders');
 
-  const delO = (i) => {
+  const delO = (id) => {
     if (confirm('Remover esta ordem?')) {
-      const newOrders = [...orders];
-      newOrders.splice(i, 1);
-      setOrders(newOrders);
+      onDeleteOrder(id);
     }
-  };
-
-  const setOS = (i, s) => {
-    const newOrders = [...orders];
-    newOrders[i].status = s;
-    setOrders(newOrders);
   };
 
   return (
@@ -46,31 +38,29 @@ const Agenda = ({ orders, setOrders, zones, onNewOrder, valves, vstatus }) => {
                 <div className="et">Nenhuma ordem criada ainda</div>
               </div>
             ) : (
-              orders.slice().reverse().map((o, ri) => {
-                const i = orders.length - 1 - ri;
+              orders.map((o) => {
                 const s = o.status || 'aberta';
                 const sc = s === 'concluida' ? 'ok' : s === 'andamento' ? 'bl' : 'wn';
                 const st = s === 'concluida' ? '✓ Concluída' : s === 'andamento' ? '⚡ Em andamento' : '⏳ Aberta';
                 return (
-                  <div key={i} className="oi">
+                  <div key={o.id} className="oi">
                     <div className="oih">
                       <div>
                         <div className="oiz">{o.zona}</div>
-                        <div className="oid">{o.date} · {o.tech}</div>
+                        <div className="oid">{o.data_programada} · {o.tecnico}</div>
                       </div>
                       <span className={`bx ${sc}`}>{st}</span>
                     </div>
-                    {o.obs && (
+                    {o.observacoes && (
                       <div style={{ fontSize: '.74rem', color: 'var(--mut)', marginTop: '6px', fontFamily: "'Share Tech Mono'" }}>
-                        📝 {o.obs}
+                        📝 {o.observacoes}
                       </div>
                     )}
                     <div className="oact">
-                      {s === 'aberta' && <button className="btn btn-cy" onClick={() => setOS(i, 'andamento')}>⚡ Iniciar</button>}
-                      <button className="btn btn-g" onClick={() => setOS(i, 'concluida')}>
+                      <button className="btn btn-g">
                         {s !== 'concluida' ? '✓ Concluir' : '✓ Concluída'}
                       </button>
-                      <button className="btn btn-o" style={{ maxWidth: '46px', color: 'var(--rd)' }} onClick={() => delO(i)}>🗑</button>
+                      <button className="btn btn-o" style={{ maxWidth: '46px', color: 'var(--rd)' }} onClick={() => delO(o.id)}>🗑</button>
                     </div>
                   </div>
                 );

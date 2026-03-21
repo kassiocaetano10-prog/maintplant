@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 const OrderForm = ({ onClose, zones, onSave }) => {
   const [formData, setFormData] = useState({
     zona: zones[0] || '',
-    tech: '',
-    date: new Date().toISOString().split('T')[0],
+    tecnico: '',
+    data_programada: new Date().toISOString().split('T')[0],
     obs: ''
   });
 
   const handleSubmit = () => {
-    if (!formData.tech || !formData.date) {
+    if (!formData.tecnico || !formData.data_programada) {
       alert('Preencha os campos obrigatórios');
       return;
     }
@@ -35,8 +35,8 @@ const OrderForm = ({ onClose, zones, onSave }) => {
           <input 
             className="fi" 
             placeholder="Nome do técnico"
-            value={formData.tech}
-            onChange={(e) => setFormData({...formData, tech: e.target.value})}
+            value={formData.tecnico}
+            onChange={(e) => setFormData({...formData, tecnico: e.target.value})}
           />
         </div>
         <div className="ff">
@@ -44,8 +44,8 @@ const OrderForm = ({ onClose, zones, onSave }) => {
           <input 
             className="fi" 
             type="date"
-            value={formData.date}
-            onChange={(e) => setFormData({...formData, date: e.target.value})}
+            value={formData.data_programada}
+            onChange={(e) => setFormData({...formData, data_programada: e.target.value})}
           />
         </div>
         <div className="ff">

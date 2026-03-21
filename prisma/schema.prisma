@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Valve {
+  id          String   @id @default(uuid())
+  tag         String
+  zona        String
+  marca       String?
+  serie       String?
+  kit         String?
+  assento     String?
+  dn          String?
+  tipo        String?
+  ult_kit     String?
+  ult_man     String?
+  fabricacao  String?
+  atuador     String?
+  lote        String?
+  mariposa    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ServiceOrder {
+  id              String   @id @default(uuid())
+  zona            String
+  tecnico         String
+  data_programada String
+  observacoes     String?
+  status          String   @default("aberta")
+  createdAt       DateTime @default(now())
+}
