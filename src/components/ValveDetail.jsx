@@ -1,21 +1,28 @@
 import React from 'react';
+import { useLang } from '../i18n/LangContext';
 
-const ValveDetail = ({ valve, onClose, vstatus, photo, onStartGuide }) => {
+const ValveDetail = ({ valve, onClose, vstatus, photo, onStartGuide, onShowHistory }) => {
+  const { t } = useLang();
   const status = vstatus(valve);
-  
+
   const fields = [
-    { k: 'Marca / Fabricante', v: valve.marca },
-    { k: 'Nº Série', v: valve.serie || '—' },
-    { k: 'Tamanho (DN)', v: valve.dn || '—' },
-    { k: 'Tipo de Assento', v: valve.assento || '—' },
-    { k: 'Ano Fabricação', v: valve.fabricacao || '—' },
-    { k: 'Atuador', v: valve.atuador || '—' },
-    { k: 'Última Manutenção', v: valve.ult_man || 'Nunca registrada' },
-    { k: 'Última Troca de Kit', v: valve.ult_kit || 'Nunca registrada' }
+    { k: t('brand'), v: valve.marca },
+    { k: t('serial'), v: valve.serie || '—' },
+    { k: t('size'), v: valve.dn || '—' },
+    { k: t('seat'), v: valve.assento || '—' },
+    { k: t('year'), v: valve.fabricacao || '—' },
+    { k: t('actuator'), v: valve.atuador || '—' },
+    { k: t('last_maint'), v: valve.ult_man || t('never_registered') },
+    { k: t('last_kit'), v: valve.ult_kit || t('never_registered') }
   ];
 
   const badgeCls = status === 'ok' ? 'ok' : status === 'warn' ? 'wn' : 'cr';
-  const badgeTxt = status === 'ok' ? '✓ EM DIA' : status === 'warn' ? '⚠️ ATENÇÃO' : '⛔ CRÍTICO';
+  const badgeTxt = status === 'ok' ? t('status_ok') : status === 'warn' ? t('status_warn') : t('status_crit');
+
+  const copyInfo = () => {
+    const info = `${t('valve_label')}: ${valve.tag}\n${t('zone')}: ${valve.zona}\n${t('brand')}: ${valve.marca}\nKit: ${valve.kit || 'N/A'}\nDN: ${valve.dn || 'N/A'}`;
+    navigator.clipboard.writeText(info);
+  };
 
   return (
     <div id="det" className="overlay on">
@@ -32,23 +39,24 @@ const ValveDetail = ({ valve, onClose, vstatus, photo, onStartGuide }) => {
           {photo ? <img src={photo} alt={valve.tag} /> : <div style={{ color: 'var(--mut)', fontSize: '2rem' }}>⬡</div>}
         </div>
         <div className="kith">
-          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.58rem', color: 'var(--mut)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>⬡ Ref. Kit de Juntas</div>
-          <div className="kitr">{valve.kit || 'SEM REF'}</div>
-          <div className="kitp">Peça original recomendada</div>
+          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.58rem', color: 'var(--mut)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>{t('seal_kit_ref')}</div>
+          <div className="kitr">{valve.kit || t('no_ref')}</div>
+          <div className="kitp">{t('original_part')}</div>
         </div>
         <div className="card" style={{ marginBottom: '10px' }}>
-          <div className="ctitle">Dados técnicos</div>
+          <div className="ctitle">{t('technical_data')}</div>
           <div id="dt-fields">
             {fields.map(f => (
               <div key={f.k} className="df">
                 <div className="dk">{f.k}</div>
-                <div className={`dv ${f.k === 'Nº Série' ? 'mn' : ''}`}>{f.v}</div>
+                <div className="dv">{f.v}</div>
               </div>
             ))}
           </div>
         </div>
-        <button className="btn btn-p" onClick={onStartGuide} style={{ marginBottom: '8px' }}>🔧 Iniciar Guia de Manutenção</button>
-        <button className="btn btn-cy" onClick={() => alert('Informações copiadas!')}>📋 Copiar informações para compra</button>
+        <button className="btn btn-p" onClick={onStartGuide} style={{ marginBottom: '8px' }}>{t('start_guide')}</button>
+        <button className="btn btn-cy" onClick={onShowHistory} style={{ marginBottom: '8px' }}>{t('view_history')}</button>
+        <button className="btn" onClick={copyInfo} style={{ marginBottom: '8px', background: 'var(--s2)' }}>{t('copy_info')}</button>
       </div>
     </div>
   );

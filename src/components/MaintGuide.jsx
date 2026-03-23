@@ -1,74 +1,91 @@
 import React, { useState } from 'react';
-
-const STEPS = [
-  { t: "Isolamento e Segurança", d: ["Desativar a bomba de alimentação do setor.", "Bloquear as válvulas de entrada e saída manuais.", "Aliviar a pressão interna do corpo da válvula."], w: "Nunca abra a válvula sob pressão. Risco de projeção de fluidos quentes ou químicos." },
-  { t: "Desmontagem do Atuador", d: ["Desconectar as mangueiras de ar comprimido (anotar posições).", "Remover os parafusos de união entre o atuador e o corpo.", "Extrair o conjunto atuador/eixo verticalmente com cuidado."], i: "Utilize uma chave estrela de 13mm para evitar danos nas porcas de aço inox." },
-  { t: "Inspeção de Juntas e O-rings", d: ["Remover as juntas antigas do prato (assento) e do eixo.", "Limpar todas as ranhuras com álcool isopropílico.", "Verificar se há riscos ou deformações nas superfícies metálicas."] },
-  { t: "Instalação do Novo Kit", d: ["Lubrificar levemente as novas juntas com graxa grau alimentício (Klüber).", "Encaixar as juntas de assento garantindo que não fiquem torcidas.", "Substituir o O-ring da haste e a vedação do corpo."], i: "A lubrificação correta aumenta em 40% a vida útil das vedações em ciclos CIP." },
-  { t: "Remontagem e Teste", d: ["Inserir o eixo no corpo garantindo o alinhamento central.", "Fixar o atuador e reapertar os parafusos em cruz.", "Religar o ar comprimido e testar a abertura/fechamento 5 vezes."], i: "Verificar se o sensor (ThinkTop) indica as posições corretas no painel." }
-];
+import { useLang } from '../i18n/LangContext';
 
 const MaintGuide = ({ valve, onClose, onFinish }) => {
+  const { t } = useLang();
   const [currentStep, setCurrentStep] = useState(0);
-  const [doneSteps, setDoneSteps] = useState(new Set());
+  const [completed, setCompleted] = useState([]);
 
-  const toggleStep = (i) => {
-    setCurrentStep(i);
-  };
+  const steps = [
+    { title: t('step1_title'), details: [t('step1_d1'), t('step1_d2'), t('step1_d3')], warning: t('step1_warn') },
+    { title: t('step2_title'), details: [t('step2_d1'), t('step2_d2'), t('step2_d3')], tip: t('step2_tip') },
+    { title: t('step3_title'), details: [t('step3_d1'), t('step3_d2'), t('step3_d3')] },
+    { title: t('step4_title'), details: [t('step4_d1'), t('step4_d2'), t('step4_d3')], tip: t('step4_tip') },
+    { title: t('step5_title'), details: [t('step5_d1'), t('step5_d2'), t('step5_d3'), t('step5_d4')], tip: t('step5_tip') }
+  ];
 
-  const markDone = (i) => {
-    const newDone = new Set(doneSteps);
-    newDone.add(i);
-    setDoneSteps(newDone);
-    if (i < STEPS.length - 1) {
-      setCurrentStep(i + 1);
+  const confirmStep = (i) => {
+    if (!completed.includes(i)) {
+      setCompleted([...completed, i]);
+      if (i < steps.length - 1) setCurrentStep(i + 1);
     }
   };
 
-  const progress = Math.round((doneSteps.size / STEPS.length) * 100);
+  const progress = (completed.length / steps.length) * 100;
 
   return (
-    <div id="guide" className="overlay on" style={{ zIndex: 200 }}>
-      <div className="ovhd" style={{ flexDirection: 'column', gap: '5px', paddingBottom: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
-          <button className="bkbtn" onClick={onClose}>←</button>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: 'Orbitron, monospace', fontWeight: 700, fontSize: '.87rem', color: 'var(--txt)' }}>Guia de Manutenção</div>
-            <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.62rem', color: 'var(--mut)' }}>{valve.tag}</div>
+    <div className="overlay on">
+      <div className="ovhd">
+        <button className="bkbtn" onClick={onClose}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: 'Orbitron, monospace', fontWeight: 900, fontSize: '.85rem', color: 'var(--or)' }}>
+            {t('guide_title')}
           </div>
-          <div style={{ fontFamily: 'Orbitron, monospace', fontSize: '.72rem', color: 'var(--or)' }}>{doneSteps.size}/{STEPS.length}</div>
+          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.6rem', color: 'var(--mut)' }}>
+            {valve.tag} — {valve.zona}
+          </div>
         </div>
-        <div className="ptrack"><div className="pfill" style={{ width: `${progress}%` }}></div></div>
       </div>
       <div className="ovbd">
-        {STEPS.map((s, i) => (
-          <div key={i} className={`stcard ${currentStep === i ? 'ac' : ''} ${doneSteps.has(i) ? 'dn' : ''}`}>
-            <div className="sthd" onClick={() => toggleStep(i)}>
-              <div className={`stnum ${currentStep === i ? 'ac' : ''} ${doneSteps.has(i) ? 'dn' : ''}`}>{i + 1}</div>
-              <div style={{ fontSize: '.88rem', fontWeight: 700, color: 'var(--txt)' }}>{s.t}</div>
-            </div>
-            <div className={`stbd ${currentStep === i ? 'on' : ''}`}>
-              {s.d.map((line, li) => (
-                <div key={li} className="stli">{line}</div>
-              ))}
-              {s.i && <div className="stip">💡 {s.i}</div>}
-              {s.w && <div className="stwn">⚠️ {s.w}</div>}
-              <div className="stac">
-                <button 
-                  className="btn btn-g" 
-                  onClick={() => markDone(i)}
-                  disabled={doneSteps.has(i)}
-                >
-                  {doneSteps.has(i) ? '✓ Concluído' : 'Confirmar Etapa'}
-                </button>
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.55rem', color: 'var(--mut)' }}>{completed.length}/{steps.length}</div>
+            <div style={{ fontFamily: 'Orbitron', fontSize: '.6rem', color: 'var(--or)' }}>{Math.round(progress)}%</div>
+          </div>
+          <div style={{ height: '6px', background: 'var(--s3)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, var(--or), var(--yl))', transition: '0.5s', borderRadius: '3px' }} />
+          </div>
+        </div>
+
+        {steps.map((step, i) => {
+          const done = completed.includes(i);
+          return (
+            <div key={i} className="card" style={{ marginBottom: '10px', opacity: i > currentStep && !done ? 0.4 : 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '50%', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  background: done ? 'var(--gn)' : 'var(--s3)',
+                  color: done ? '#fff' : 'var(--txt)', fontFamily: 'Orbitron', fontSize: '.7rem', fontWeight: 900
+                }}>{done ? '✓' : i + 1}</div>
+                <div style={{ fontFamily: 'Exo 2', fontWeight: 700, fontSize: '.8rem', color: 'var(--txt)' }}>{step.title}</div>
+              </div>
+              <div style={{ paddingLeft: '42px' }}>
+                {step.details.map((d, j) => (
+                  <div key={j} style={{ fontFamily: 'Share Tech Mono', fontSize: '.63rem', color: 'var(--txt2)', marginBottom: '4px' }}>› {d}</div>
+                ))}
+                {step.warning && (
+                  <div style={{ marginTop: '6px', padding: '8px', background: 'rgba(239,68,68,0.1)', borderRadius: '6px', borderLeft: '3px solid var(--rd)', fontFamily: 'Share Tech Mono', fontSize: '.6rem', color: 'var(--rd)' }}>
+                    ⚠️ {step.warning}
+                  </div>
+                )}
+                {step.tip && (
+                  <div style={{ marginTop: '6px', padding: '8px', background: 'rgba(249,115,22,0.1)', borderRadius: '6px', borderLeft: '3px solid var(--or)', fontFamily: 'Share Tech Mono', fontSize: '.6rem', color: 'var(--or2)' }}>
+                    💡 {step.tip}
+                  </div>
+                )}
+                {!done && i <= currentStep && (
+                  <button className="btn btn-p" onClick={() => confirmStep(i)} style={{ marginTop: '8px', padding: '8px', fontSize: '.65rem' }}>
+                    {t('confirm_step')}
+                  </button>
+                )}
               </div>
             </div>
-          </div>
-        ))}
-        {doneSteps.size === STEPS.length && (
-          <button className="btn btn-p" onClick={onFinish} style={{ marginTop: '20px' }}>
-            Finalizar e Registrar
-          </button>
+          );
+        })}
+
+        {completed.length === steps.length && (
+          <button className="btn btn-p" onClick={onFinish} style={{ marginTop: '4px' }}>{t('finish_register')}</button>
         )}
       </div>
     </div>

@@ -833,4 +833,28 @@ html, body {
   &::before { content: ''; display: block; width: 14px; height: 1px; background: var(--or); }
 }
 
-.empty { text-align: center; padding: 50px 20px; color: var(--mut); .ei { font-size: 2.5rem; margin-bottom: 10px; } .et { font-size: .83rem; font-family: 'Share Tech Mono'; letter-spacing: .5px; } }
+.empty { text-align: center; padding: 50px 20px; color: var(--mut); .ei { font-size: 2.5rem; margin-bottom: 10px; } .et { font-size: .83rem; font-family: 'Share Tech Mono'; letter-spacing: .5px; } .es { font-size: .7rem; font-family: 'Share Tech Mono'; margin-top: 6px; } }
+
+/* Button variants */
+.btn-cy {
+  background: linear-gradient(135deg, var(--cy), #0099cc) !important;
+  color: #fff !important;
+}
+
+.btn-o {
+  background: var(--s2) !important;
+  color: var(--or) !important;
+  border: 1px solid rgba(249, 115, 22, 0.3) !important;
+}
+
+/* Badge blue */
+.bx.bl {
+  background: rgba(0, 212, 255, .1);
+  color: var(--cy);
+  border-color: rgba(0, 212, 255, .3);
+}
+
+/* Zone selector full width */
+.zsel {
+  width: 100%;
+}

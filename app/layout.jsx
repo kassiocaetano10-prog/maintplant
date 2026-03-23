@@ -3,6 +3,7 @@ import "../src/styles/main.scss";
 export const metadata = {
   title: 'MaintPlant',
   description: 'Gestão de Manutenção de Válvulas',
+  manifest: '/manifest.json',
 }
 
 export default function RootLayout({ children }) {
@@ -14,11 +15,24 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="theme-color" content="#060810" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/favicon.svg" />
       </head>
       <body>
-        <div id="app">
-          {children}
-        </div>
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                  navigator.serviceWorker.register('/sw.js')
+                    .then(r => console.log('SW registered'))
+                    .catch(e => console.log('SW failed:', e));
+                });
+              }
+            `
+          }}
+        />
       </body>
     </html>
   )
