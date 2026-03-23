@@ -1,4 +1,5 @@
 import React from 'react';
+import { VALVE_PHOTOS } from '../data/plantData';
 
 const Valves = ({ valves, search, setSearch, vstatus, onValveClick, photos }) => {
   return (
@@ -25,7 +26,7 @@ const Valves = ({ valves, search, setSearch, vstatus, onValveClick, photos }) =>
         ) : (
           valves.map(v => {
             const status = vstatus(v);
-            const photo = photos[v.tag];
+            const photo = photos[v.tag] || VALVE_PHOTOS[v.tag];
             return (
               <div key={v.tag} className="vi" onClick={() => onValveClick(v)}>
                 <div className="vi-sb" style={{ background: status === 'ok' ? 'var(--gn)' : status === 'warn' ? 'var(--yl)' : 'var(--rd)' }}></div>
