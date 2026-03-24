@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { useLang } from '../i18n/LangContext';
+import { loginUser } from '../lib/useSupabase';
 
 const FlagBR = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#009B3A"/><path d="M2 18L18 6l16 12L18 30z" fill="#FEDF00"/><circle cx="18" cy="18" r="6.5" fill="#002776"/><path d="M12 18.5c3-3 9-3 12 0" stroke="#fff" strokeWidth="1" fill="none"/></svg>);
 const FlagES = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#C60B1E"/><rect y="9" width="36" height="18" fill="#FFC400"/></svg>);
 const FlagEN = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#012169"/><path d="M0 0L36 36M36 0L0 36" stroke="#fff" strokeWidth="6"/><path d="M0 0L36 36M36 0L0 36" stroke="#C8102E" strokeWidth="2"/><path d="M18 0V36M0 18H36" stroke="#fff" strokeWidth="10"/><path d="M18 0V36M0 18H36" stroke="#C8102E" strokeWidth="6"/></svg>);
 const flagComponents = { pt: <FlagBR />, es: <FlagES />, en: <FlagEN /> };
 
-const USERS = [
-  { username: 'admin', password: 'admin123', name: 'Administrador', role: 'admin' },
+// Fallback local — caso o Supabase esteja offline
+const LOCAL_USERS = [
+  { username: 'diretor', password: 'dir123', name: 'Diretor', role: 'admin' },
+  { username: 'compras', password: 'comp123', name: 'Equipe de Compras', role: 'compras' },
+  { username: 'chefe', password: 'chef123', name: 'Chefe de Equipe', role: 'chefe' },
   { username: 'tecnico1', password: 'tec123', name: 'Técnico 1', role: 'tecnico' },
-  { username: 'tecnico2', password: 'tec123', name: 'Técnico 2', role: 'tecnico' },
-  { username: 'gestor', password: 'gest123', name: 'Gestor', role: 'gestor' }
+  { username: 'tecnico2', password: 'tec123', name: 'Técnico 2', role: 'tecnico' }
 ];
 
 const Login = ({ onLogin }) => {
@@ -19,12 +22,31 @@ const Login = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const user = USERS.find(u => u.username === username && u.password === password);
-    if (user) {
-      const session = { ...user, loginTime: new Date().toISOString() };
+    setLoading(true);
+    setError('');
+
+    try {
+      // Tentar login via Supabase
+      const user = await loginUser(username, password);
+      if (user) {
+        const session = { ...user, loginTime: new Date().toISOString() };
+        if (typeof window !== 'undefined') localStorage.setItem('mp_session', JSON.stringify(session));
+        onLogin(session);
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Supabase offline — tentar fallback local
+    }
+
+    // Fallback: login local
+    const localUser = LOCAL_USERS.find(u => u.username === username && u.password === password);
+    if (localUser) {
+      const session = { ...localUser, loginTime: new Date().toISOString() };
       delete session.password;
       if (typeof window !== 'undefined') localStorage.setItem('mp_session', JSON.stringify(session));
       onLogin(session);
@@ -32,6 +54,7 @@ const Login = ({ onLogin }) => {
       setError(t('login_error'));
       setTimeout(() => setError(''), 3000);
     }
+    setLoading(false);
   };
 
   return (
@@ -114,8 +137,8 @@ const Login = ({ onLogin }) => {
           }}>⛔ {error}</div>
         )}
 
-        <button type="submit" className="btn btn-p" style={{ marginTop: '16px' }}>
-          {t('login_btn')}
+        <button type="submit" className="btn btn-p" style={{ marginTop: '16px', opacity: loading ? 0.6 : 1 }} disabled={loading}>
+          {loading ? '...' : t('login_btn')}
         </button>
 
         <div style={{
@@ -123,9 +146,11 @@ const Login = ({ onLogin }) => {
           textAlign: 'center', marginTop: '16px', lineHeight: '1.6'
         }}>
           {t('login_test')}<br />
-          admin / admin123<br />
+          diretor / dir123<br />
+          compras / comp123<br />
+          chefe / chef123<br />
           tecnico1 / tec123<br />
-          gestor / gest123
+          tecnico2 / tec123
         </div>
       </form>
     </div>

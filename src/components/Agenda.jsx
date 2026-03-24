@@ -1,7 +1,24 @@
 import React, { useState } from 'react';
 
-const Agenda = ({ orders, onDeleteOrder, zones, onNewOrder, valves, vstatus }) => {
+const Agenda = ({
+  orders,
+  onDeleteOrder,
+  onNewOrder,
+  onUpdateOrderStatus,
+  zones,
+  valves,
+  vstatus,
+  user,
+  restockRequests = [],
+  onCreateRestockRequest,
+  onUpdateRestockRequestStatus
+}) => {
   const [tab, setTab] = useState('orders');
+  const [problemRef, setProblemRef] = useState('');
+  const [problemDesc, setProblemDesc] = useState('');
+  const canCreateOrder = user?.role === 'admin' || user?.role === 'chefe';
+  const canManageRequests = user?.role === 'admin' || user?.role === 'chefe' || user?.role === 'compras';
+  const isTech = user?.role === 'tecnico';
 
   const delO = (id) => {
     if (confirm('Remover esta ordem?')) {
@@ -28,9 +45,11 @@ const Agenda = ({ orders, onDeleteOrder, zones, onNewOrder, valves, vstatus }) =
 
       {tab === 'orders' && (
         <div id="ag-orders">
-          <button className="btn btn-p" onClick={onNewOrder} style={{ marginBottom: '13px' }}>
-            ⚡ Nova Ordem de Serviço
-          </button>
+          {canCreateOrder && (
+            <button className="btn btn-p" onClick={onNewOrder} style={{ marginBottom: '13px' }}>
+              ⚡ Nova Ordem de Serviço
+            </button>
+          )}
           <div id="olist">
             {orders.length === 0 ? (
               <div className="empty">
@@ -48,6 +67,12 @@ const Agenda = ({ orders, onDeleteOrder, zones, onNewOrder, valves, vstatus }) =
                       <div>
                         <div className="oiz">{o.zona}</div>
                         <div className="oid">{o.data_programada} · {o.tecnico}</div>
+                        {o.createdBy && (
+                          <div className="oid">Criada por: {o.createdBy}</div>
+                        )}
+                        {o.valveTag && (
+                          <div className="oid">Válvula: {o.valveTag}</div>
+                        )}
                       </div>
                       <span className={`bx ${sc}`}>{st}</span>
                     </div>
@@ -57,16 +82,82 @@ const Agenda = ({ orders, onDeleteOrder, zones, onNewOrder, valves, vstatus }) =
                       </div>
                     )}
                     <div className="oact">
-                      <button className="btn btn-g">
+                      <button
+                        className="btn btn-g"
+                        onClick={() => onUpdateOrderStatus?.(o.id, s === 'concluida' ? 'aberta' : 'concluida')}
+                      >
                         {s !== 'concluida' ? '✓ Concluir' : '✓ Concluída'}
                       </button>
-                      <button className="btn btn-o" style={{ maxWidth: '46px', color: 'var(--rd)' }} onClick={() => delO(o.id)}>🗑</button>
+                      {canCreateOrder && (
+                        <button className="btn btn-o" style={{ maxWidth: '46px', color: 'var(--rd)' }} onClick={() => delO(o.id)}>🗑</button>
+                      )}
                     </div>
                   </div>
                 );
               })
             )}
           </div>
+
+          {isTech && (
+            <div className="card" style={{ marginTop: '12px' }}>
+              <div className="ctitle">🧩 Reportar peça com problema</div>
+              <div className="ff">
+                <label className="fl">Referência da peça/kit</label>
+                <input className="fi" value={problemRef} onChange={(e) => setProblemRef(e.target.value)} placeholder="Ex: 2.30.4.16 / kit-xyz" />
+              </div>
+              <div className="ff">
+                <label className="fl">Descrição do problema</label>
+                <input className="fi" value={problemDesc} onChange={(e) => setProblemDesc(e.target.value)} placeholder="Vazando, desgaste, não fecha..." />
+              </div>
+              <button
+                className="btn btn-p"
+                onClick={() => {
+                  if (!problemRef.trim() || !problemDesc.trim()) {
+                    alert('Preencha a referência e a descrição');
+                    return;
+                  }
+                  onCreateRestockRequest?.({
+                    ref: problemRef.trim(),
+                    description: problemDesc.trim(),
+                    suggestedBy: user?.name || 'Técnico'
+                  });
+                  setProblemRef('');
+                  setProblemDesc('');
+                  alert('Sugestão enviada para análise do chefe/equipe de compras.');
+                }}
+              >
+                Enviar sugestão de reposição
+              </button>
+            </div>
+          )}
+
+          {canManageRequests && (
+            <div className="card" style={{ marginTop: '12px' }}>
+              <div className="ctitle">📥 Sugestões de reposição</div>
+              {restockRequests.length === 0 ? (
+                <div className="et" style={{ color: 'var(--mut)' }}>Nenhuma sugestão recebida.</div>
+              ) : (
+                restockRequests.map((req) => (
+                  <div key={req.id} className="kr">
+                    <div>
+                      <div className="kc">{req.ref}</div>
+                      <div className="ki">{req.description}</div>
+                      <div className="ki">Por: {req.suggestedBy} · {new Date(req.createdAt).toLocaleString('pt-BR')}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <span className={`bx ${req.status === 'aprovada' ? 'ok' : req.status === 'rejeitada' ? 'cr' : 'wn'}`}>{req.status}</span>
+                      {(user?.role === 'admin' || user?.role === 'chefe') && req.status === 'pendente' && (
+                        <>
+                          <button className="btn btn-g" style={{ maxWidth: '36px' }} onClick={() => onUpdateRestockRequestStatus?.(req.id, 'aprovada')}>✓</button>
+                          <button className="btn btn-o" style={{ maxWidth: '36px', color: 'var(--rd)' }} onClick={() => onUpdateRestockRequestStatus?.(req.id, 'rejeitada')}>✕</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 

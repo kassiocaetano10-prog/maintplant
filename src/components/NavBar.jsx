@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLang } from '../i18n/LangContext';
 
-const NavBar = ({ view, setView }) => {
+const NavBar = ({ view, setView, user }) => {
   const { t } = useLang();
 
   const tabs = [
@@ -32,9 +32,18 @@ const NavBar = ({ view, setView }) => {
     )}
   ];
 
+  const roleTabs = {
+    admin: ['dash', 'valves', 'agenda', 'painel', 'compras'],
+    chefe: ['dash', 'valves', 'agenda', 'painel', 'compras'],
+    compras: ['compras'],
+    tecnico: ['valves', 'agenda']
+  };
+  const allowed = roleTabs[user?.role] || roleTabs.tecnico;
+  const visibleTabs = tabs.filter((tab) => allowed.includes(tab.id));
+
   return (
     <div id="navbar">
-      {tabs.map(tab => (
+      {visibleTabs.map(tab => (
         <button key={tab.id} className={`nb ${view === tab.id ? 'on' : ''}`} onClick={() => setView(tab.id)}>
           {tab.icon}
           {tab.label}

@@ -20,7 +20,14 @@ const Dashboard = ({ valves, vstatus, zones, onZoneClick, history, user }) => {
   const topBrands = Object.entries(brandMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const maxBrand = topBrands[0]?.[1] || 1;
 
-  const roleLabel = user?.role === 'admin' ? t('admin') : user?.role === 'gestor' ? t('manager') : t('technician');
+  const roleLabel =
+    user?.role === 'admin'
+      ? 'Diretor'
+      : user?.role === 'chefe'
+      ? 'Chefe de Equipe'
+      : user?.role === 'compras'
+      ? 'Equipe de Compras'
+      : t('technician');
 
   return (
     <div id="sc-dash" className="sc on">

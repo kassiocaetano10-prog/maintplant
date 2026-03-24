@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import './styles/main.scss'
 import { PLANT_DATA, VALVE_PHOTOS } from './data/plantData'
 import { LangProvider, useLang } from './i18n/LangContext'
+import { useMaintenanceRecords, useOrders, useRestockRequests, useStock } from './lib/useSupabase'
 
 // Components
 import TopBar from './components/TopBar'
@@ -44,28 +45,16 @@ function App() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showReport, setShowReport] = useState(false)
 
-  // Data
-  const [orders, setOrders] = useState(() => {
-    const saved = ls('mp_orders')
-    return saved ? JSON.parse(saved) : []
-  })
+  // Data from Supabase (with localStorage fallback)
+  const { records: history, addRecord: addMaintRecord } = useMaintenanceRecords()
+  const { orders, addOrder, deleteOrder, updateOrderStatus } = useOrders()
+  const { requests: restockRequests, addRequest: addRestockRequest, updateStatus: updateRestockStatus } = useRestockRequests()
+  const { stock, setStock } = useStock()
+
   const [photos, setPhotos] = useState(() => {
     const saved = ls('mp_photos')
     return saved ? JSON.parse(saved) : {}
   })
-  const [history, setHistory] = useState(() => {
-    const saved = ls('mp_history')
-    return saved ? JSON.parse(saved) : []
-  })
-
-  // Persist
-  useEffect(() => {
-    lsSet('mp_orders', JSON.stringify(orders))
-  }, [orders])
-
-  useEffect(() => {
-    lsSet('mp_history', JSON.stringify(history))
-  }, [history])
 
   // Status calc
   const vstatus = (v) => {
@@ -95,11 +84,10 @@ function App() {
     })
   }, [zone, search])
 
-  // Handle maintenance finish
-  const handleMaintFinish = (record) => {
-    setHistory(prev => [record, ...prev])
+  // Handle maintenance finish — save to Supabase
+  const handleMaintFinish = async (record) => {
+    await addMaintRecord(record)
     setShowFinish(null)
-    // Show success feedback
     alert(`✓ Manutenção registada com sucesso!\n\nVálvula: ${record.tag}\nTécnico: ${record.technician}`)
   }
 
@@ -108,6 +96,22 @@ function App() {
     lsRm('mp_session')
     setUser(null)
   }
+
+  const allowedViews = useMemo(() => {
+    const allowedViewsByRole = {
+      admin: ['dash', 'valves', 'agenda', 'painel', 'compras'],
+      chefe: ['dash', 'valves', 'agenda', 'painel', 'compras'],
+      compras: ['compras'],
+      tecnico: ['valves', 'agenda']
+    }
+    return allowedViewsByRole[user?.role] || ['valves', 'agenda']
+  }, [user?.role])
+
+  useEffect(() => {
+    if (user && !allowedViews.includes(view)) {
+      setView(allowedViews[0])
+    }
+  }, [user, view, allowedViews])
 
   // Login gate
   if (!user) {
@@ -123,7 +127,7 @@ function App() {
         zones={PLANT_DATA.zonas}
         alertCount={alertCount}
         onNotifications={() => setShowNotifications(true)}
-        onReport={() => setShowReport(true)}
+        onReport={() => (user?.role === 'admin' || user?.role === 'chefe') && setShowReport(true)}
         onLogout={handleLogout}
         user={user}
       />
@@ -142,7 +146,7 @@ function App() {
       </div>
 
       <div id="content">
-        {view === 'dash' && (
+        {view === 'dash' && allowedViews.includes('dash') && (
           <Dashboard
             valves={PLANT_DATA.valves}
             vstatus={vstatus}
@@ -152,7 +156,7 @@ function App() {
             user={user}
           />
         )}
-        {view === 'valves' && (
+        {view === 'valves' && allowedViews.includes('valves') && (
           <Valves
             valves={filteredValves}
             search={search}
@@ -162,17 +166,22 @@ function App() {
             photos={photos}
           />
         )}
-        {view === 'agenda' && (
+        {view === 'agenda' && allowedViews.includes('agenda') && (
           <Agenda
             orders={orders}
-            setOrders={setOrders}
+            onDeleteOrder={deleteOrder}
+            onUpdateOrderStatus={updateOrderStatus}
             zones={PLANT_DATA.zonas}
             onNewOrder={() => setShowOrderForm(true)}
             valves={PLANT_DATA.valves}
             vstatus={vstatus}
+            user={user}
+            restockRequests={restockRequests}
+            onCreateRestockRequest={addRestockRequest}
+            onUpdateRestockRequestStatus={updateRestockStatus}
           />
         )}
-        {view === 'painel' && (
+        {view === 'painel' && allowedViews.includes('painel') && (
           <Panel
             valves={PLANT_DATA.valves}
             vstatus={vstatus}
@@ -180,14 +189,18 @@ function App() {
             orders={orders}
           />
         )}
-        {view === 'compras' && (
+        {view === 'compras' && allowedViews.includes('compras') && (
           <Compras
             valves={PLANT_DATA.valves}
+            user={user}
+            stock={stock}
+            setStock={setStock}
+            restockRequests={restockRequests}
           />
         )}
       </div>
 
-      <NavBar view={view} setView={setView} />
+      <NavBar view={view} setView={setView} user={user} />
 
       {/* Valve Detail Modal */}
       {selectedValve && (
@@ -202,11 +215,18 @@ function App() {
       )}
 
       {/* Order Form */}
-      {showOrderForm && (
+      {showOrderForm && (user?.role === 'admin' || user?.role === 'chefe') && (
         <OrderForm
           onClose={() => setShowOrderForm(false)}
           zones={PLANT_DATA.zonas}
-          onSave={(order) => { setOrders([...orders, order]); setShowOrderForm(false); }}
+          valves={PLANT_DATA.valves}
+          onSave={(order) => {
+            addOrder({
+              ...order,
+              createdBy: user?.name || user?.username || 'Sistema'
+            });
+            setShowOrderForm(false);
+          }}
         />
       )}
 
@@ -251,7 +271,7 @@ function App() {
       )}
 
       {/* Report PDF */}
-      {showReport && (
+      {showReport && (user?.role === 'admin' || user?.role === 'chefe') && (
         <ReportPDF
           valves={PLANT_DATA.valves}
           vstatus={vstatus}

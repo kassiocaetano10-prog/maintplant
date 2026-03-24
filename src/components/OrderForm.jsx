@@ -1,19 +1,40 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
-const OrderForm = ({ onClose, zones, onSave }) => {
+const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
   const [formData, setFormData] = useState({
     zona: zones[0] || '',
+    valveTag: '',
     tecnico: '',
     data_programada: new Date().toISOString().split('T')[0],
     obs: ''
   });
+
+  const valveTags = useMemo(() => {
+    const tags = valves
+      .map((v) => (v?.tag || '').trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    return Array.from(new Set(tags));
+  }, [valves]);
+
+  const valveSuggestions = useMemo(() => {
+    const query = (formData.valveTag || '').trim().toLowerCase();
+    if (!query) return valveTags.slice(0, 30);
+    return valveTags
+      .filter((tag) => tag.toLowerCase().includes(query))
+      .slice(0, 30);
+  }, [formData.valveTag, valveTags]);
 
   const handleSubmit = () => {
     if (!formData.tecnico || !formData.data_programada) {
       alert('Preencha os campos obrigatórios');
       return;
     }
-    onSave({ ...formData, status: 'aberta' });
+    onSave({
+      ...formData,
+      observacoes: formData.obs,
+      status: 'aberta'
+    });
   };
 
   return (
@@ -29,6 +50,21 @@ const OrderForm = ({ onClose, zones, onSave }) => {
           >
             {zones.map(z => <option key={z} value={z}>{z}</option>)}
           </select>
+        </div>
+        <div className="ff">
+          <label className="fl">Nº da válvula</label>
+          <input
+            className="fi"
+            placeholder="Ex: 2.30.4.16"
+            list="valve-tags-list"
+            value={formData.valveTag}
+            onChange={(e) => setFormData({ ...formData, valveTag: e.target.value })}
+          />
+          <datalist id="valve-tags-list">
+            {valveSuggestions.map((tag) => (
+              <option key={tag} value={tag} />
+            ))}
+          </datalist>
         </div>
         <div className="ff">
           <label className="fl">Técnico responsável</label>

@@ -858,3 +858,89 @@ html, body {
 .zsel {
   width: 100%;
 }
+
+/* Desktop layout (PC browser) */
+@media (min-width: 1024px) {
+  #app {
+    max-width: min(1480px, 96vw);
+    width: 100%;
+    padding: 0 14px;
+  }
+
+  #topbar {
+    border-radius: 0 0 12px 12px;
+    margin-bottom: 10px;
+    padding: 12px 16px;
+  }
+
+  #content {
+    border: 1px solid var(--bdr);
+    border-radius: 12px;
+    background: rgba(12, 17, 32, .45);
+    margin-bottom: 10px;
+
+    .sc {
+      padding: 16px 16px 20px;
+    }
+  }
+
+  #navbar {
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid var(--bdr);
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+
+    .nb {
+      flex-direction: row;
+      justify-content: center;
+      gap: 7px;
+      padding: 12px 8px;
+      font-size: .64rem;
+    }
+  }
+
+  .stats {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  #vlist,
+  #olist,
+  #plist,
+  #clist {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .zcard,
+  .vi,
+  .oi,
+  .scc,
+  .calz {
+    margin-bottom: 0;
+  }
+
+  #oform {
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+
+    .fsh {
+      border-radius: 16px;
+      width: min(760px, 92vw);
+      max-height: min(86vh, 900px);
+    }
+  }
+
+  .overlay {
+    max-width: min(1200px, 96vw);
+    border-left: 1px solid var(--bdr);
+    border-right: 1px solid var(--bdr);
+  }
+
+  .det-img-wrap {
+    height: 260px;
+  }
+}
