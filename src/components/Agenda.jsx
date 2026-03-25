@@ -196,20 +196,20 @@ const Agenda = ({
               if (!zv.length) return null;
               const ok = zv.filter(v => vstatus(v) === 'ok').length;
               const cr = zv.filter(v => vstatus(v) === 'crit').length;
-              const t = zv.length;
-              const pr = cr === t ? t('priority_critical') : cr > t * 0.5 ? t('priority_high') : t('priority_low');
-              const pc = cr === t ? 'var(--rd)' : cr > t * 0.5 ? 'var(--yl)' : 'var(--gn)';
+              const total = zv.length;
+              const pr = cr === total ? t('priority_critical') : cr > total * 0.5 ? t('priority_high') : t('priority_low');
+              const pc = cr === total ? 'var(--rd)' : cr > total * 0.5 ? 'var(--yl)' : 'var(--gn)';
               return (
                 <div key={z} className="calz">
                   <div className="calzn">{z}<span className="bx" style={{ fontSize: '.6rem', color: pc, background: 'rgba(0,0,0,.3)', border: 'none' }}>{pr}</span></div>
                   <div className="calb">
                     <div className="calbl">{t('in_day')}</div>
-                    <div className="calbg"><div className="calfi" style={{ width: `${Math.round(ok/t*100)}%`, background: 'var(--gn)' }}></div></div>
+                    <div className="calbg"><div className="calfi" style={{ width: `${Math.round(ok/total*100)}%`, background: 'var(--gn)' }}></div></div>
                     <div style={{ fontFamily: 'Orbitron, monospace', fontSize: '.64rem', color: 'var(--mut)', width: '22px', textAlign: 'right' }}>{ok}</div>
                   </div>
                   <div className="calb">
                     <div className="calbl">{t('critical')}</div>
-                    <div className="calbg"><div className="calfi" style={{ width: `${Math.round(cr/t*100)}%`, background: 'var(--rd)' }}></div></div>
+                    <div className="calbg"><div className="calfi" style={{ width: `${Math.round(cr/total*100)}%`, background: 'var(--rd)' }}></div></div>
                     <div style={{ fontFamily: 'Orbitron, monospace', fontSize: '.64rem', color: 'var(--mut)', width: '22px', textAlign: 'right' }}>{cr}</div>
                   </div>
                 </div>

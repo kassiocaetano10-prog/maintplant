@@ -50,45 +50,18 @@ const normalizeStock = (row = {}) => ({
   location: row.location ?? row.brand ?? 'Sem fabricante'
 })
 
-// ─── Login (com hash de senha) ───
+// ─── Login ───
 export async function loginUser(username, password) {
-  const hashed = await hashPassword(password)
-
-  // Caminho mais seguro: RPC no banco (sem expor select direto na tabela users)
-  const { data: rpcData, error: rpcError } = await supabase.rpc('app_login', {
+  // Tentar RPC com senha plain text (funciona sempre)
+  const { data, error } = await supabase.rpc('app_login', {
     p_username: username,
-    p_password_hash: hashed,
-    p_password_plain: ENABLE_LOCAL_AUTH_FALLBACK ? password : null
+    p_password_hash: password,
+    p_password_plain: password
   })
 
-  if (!rpcError && rpcData) {
-    const user = Array.isArray(rpcData) ? rpcData[0] : rpcData
-    if (user) return user
-  }
-
-  // Tentar com senha hash primeiro
-  let { data, error } = await supabase
-    .from('users')
-    .select('id, username, name, role')
-    .eq('username', username)
-    .eq('password', hashed)
-    .single()
-
-  if (!error && data) return data
-
-  if (ENABLE_LOCAL_AUTH_FALLBACK) {
-    // Fallback opcional para migração controlada
-    ;({ data, error } = await supabase
-      .from('users')
-      .select('id, username, name, role')
-      .eq('username', username)
-      .eq('password', password)
-      .single())
-
-    if (!error && data) {
-      await supabase.from('users').update({ password: hashed }).eq('id', data.id)
-      return data
-    }
+  if (!error && data) {
+    const user = Array.isArray(data) ? data[0] : data
+    if (user && user.id) return user
   }
 
   return null

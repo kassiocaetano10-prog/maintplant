@@ -166,7 +166,7 @@ const ReportPDF = ({ valves, vstatus, zones, history, onClose }) => {
           h.technician,
           h.type === 'preventiva' ? 'Preventiva' : 'Corretiva',
           h.kitChanged ? 'Sim' : 'Não',
-          h.service.substring(0, 30)
+          (h.service || '').substring(0, 30)
         ]);
 
         doc.autoTable({

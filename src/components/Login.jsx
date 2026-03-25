@@ -8,23 +8,7 @@ const FlagES = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect widt
 const FlagEN = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#012169"/><path d="M0 0L36 36M36 0L0 36" stroke="#fff" strokeWidth="6"/><path d="M0 0L36 36M36 0L0 36" stroke="#C8102E" strokeWidth="2"/><path d="M18 0V36M0 18H36" stroke="#fff" strokeWidth="10"/><path d="M18 0V36M0 18H36" stroke="#C8102E" strokeWidth="6"/></svg>);
 const flagComponents = { pt: <FlagBR />, es: <FlagES />, en: <FlagEN /> };
 
-// Fallback local — caso o Supabase esteja offline (com hash)
-const LOCAL_USERS = [
-  { username: 'diretor', name: 'Diretor', role: 'admin' },
-  { username: 'compras', name: 'Equipe de Compras', role: 'compras' },
-  { username: 'chefe', name: 'Chefe de Equipe', role: 'chefe' },
-  { username: 'tecnico1', name: 'Técnico 1', role: 'tecnico' },
-  { username: 'tecnico2', name: 'Técnico 2', role: 'tecnico' }
-];
-const LOCAL_PASSWORDS = {
-  diretor: 'dir123',
-  compras: 'comp123',
-  chefe: 'chef123',
-  tecnico1: 'tec123',
-  tecnico2: 'tec123'
-};
-const ENABLE_LOCAL_AUTH_FALLBACK = typeof process !== 'undefined' &&
-  process.env.NEXT_PUBLIC_ENABLE_LOCAL_AUTH_FALLBACK === 'true';
+// Sem fallback local — autenticação apenas via Supabase
 
 const Login = ({ onLogin }) => {
   const { t, lang, setLang } = useLang();
@@ -62,26 +46,19 @@ const Login = ({ onLogin }) => {
         return;
       }
     } catch {
-      // Supabase offline — tentar fallback local
+      // Supabase offline
     }
 
-    // Fallback local só quando explicitamente habilitado
-    const localUser = ENABLE_LOCAL_AUTH_FALLBACK ? LOCAL_USERS.find(u => u.username === username) : null;
-    if (localUser && LOCAL_PASSWORDS[username] === password) {
-      resetAttempts();
-      const session = saveSession({ ...localUser });
-      onLogin(session);
+    // Login falhou
+    recordFailedAttempt();
+    const newCheck = checkRateLimit();
+    if (!newCheck.allowed) {
+      setLocked(true);
+      setLockMinutes(newCheck.minutesLeft);
+      setError(t('login_locked') || `Conta bloqueada. Tente novamente em ${newCheck.minutesLeft} minutos.`);
     } else {
-      recordFailedAttempt();
-      const newCheck = checkRateLimit();
-      if (!newCheck.allowed) {
-        setLocked(true);
-        setLockMinutes(newCheck.minutesLeft);
-        setError(t('login_locked') || `Conta bloqueada. Tente novamente em ${newCheck.minutesLeft} minutos.`);
-      } else {
-        setError((t('login_error') || 'Credenciais inválidas') + ` (${newCheck.remaining} ${t('login_attempts_left') || 'tentativas restantes'})`);
-        setTimeout(() => setError(''), 5000);
-      }
+      setError((t('login_error') || 'Credenciais inválidas') + ` (${newCheck.remaining} ${t('login_attempts_left') || 'tentativas restantes'})`);
+      setTimeout(() => setError(''), 5000);
     }
     setLoading(false);
   };
