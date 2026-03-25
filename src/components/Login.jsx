@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLang } from '../i18n/LangContext';
 import { loginUser } from '../lib/useSupabase';
-import { hashPassword, saveSession, checkRateLimit, recordFailedAttempt, resetAttempts } from '../lib/auth';
+import { saveSession, checkRateLimit, recordFailedAttempt, resetAttempts } from '../lib/auth';
 
 const FlagBR = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#009B3A"/><path d="M2 18L18 6l16 12L18 30z" fill="#FEDF00"/><circle cx="18" cy="18" r="6.5" fill="#002776"/><path d="M12 18.5c3-3 9-3 12 0" stroke="#fff" strokeWidth="1" fill="none"/></svg>);
 const FlagES = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#C60B1E"/><rect y="9" width="36" height="18" fill="#FFC400"/></svg>);
@@ -23,6 +23,8 @@ const LOCAL_PASSWORDS = {
   tecnico1: 'tec123',
   tecnico2: 'tec123'
 };
+const ENABLE_LOCAL_AUTH_FALLBACK = typeof process !== 'undefined' &&
+  process.env.NEXT_PUBLIC_ENABLE_LOCAL_AUTH_FALLBACK === 'true';
 
 const Login = ({ onLogin }) => {
   const { t, lang, setLang } = useLang();
@@ -63,8 +65,8 @@ const Login = ({ onLogin }) => {
       // Supabase offline — tentar fallback local
     }
 
-    // Fallback: login local
-    const localUser = LOCAL_USERS.find(u => u.username === username);
+    // Fallback local só quando explicitamente habilitado
+    const localUser = ENABLE_LOCAL_AUTH_FALLBACK ? LOCAL_USERS.find(u => u.username === username) : null;
     if (localUser && LOCAL_PASSWORDS[username] === password) {
       resetAttempts();
       const session = saveSession({ ...localUser });
@@ -197,7 +199,7 @@ const Login = ({ onLogin }) => {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 2L3 7v7c0 5 4 8.5 9 10 5-1.5 9-5 9-10V7l-9-5z" />
         </svg>
-        SHA-256 encrypted | session expires in 8h
+        Session timeout: 8h
       </div>
     </div>
   );

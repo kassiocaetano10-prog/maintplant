@@ -1,8 +1,25 @@
 import React, { useMemo, useState } from 'react';
 import { useLang } from '../i18n/LangContext';
 
-const Compras = ({ valves, user, stock = [], setStock, restockRequests = [] }) => {
-  const { t } = useLang(); // kept for future i18n additions
+const safeParse = (value, fallback) => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const Compras = ({
+  valves,
+  user,
+  stock = [],
+  addOrIncrementStock,
+  changeStockQuantity,
+  removeStockItem,
+  restockRequests = []
+}) => {
+  const { t } = useLang();
   const canManageStock = user?.role === 'admin' || user?.role === 'compras' || user?.role === 'chefe';
   const canPurchase = user?.role === 'admin' || user?.role === 'compras' || user?.role === 'chefe';
   const [newItem, setNewItem] = useState({
@@ -15,7 +32,7 @@ const Compras = ({ valves, user, stock = [], setStock, restockRequests = [] }) =
   const [cart, setCart] = useState(() => {
     if (typeof window === 'undefined') return {};
     const saved = localStorage.getItem('mp_purchase_cart');
-    return saved ? JSON.parse(saved) : {};
+    return safeParse(saved, {});
   });
 
   const sup = {};
@@ -129,7 +146,7 @@ const Compras = ({ valves, user, stock = [], setStock, restockRequests = [] }) =
     navigator.clipboard.writeText(txt).then(() => alert(`Pedido de ${brand} copiado!`));
   };
 
-  const upsertStockItem = () => {
+  const upsertStockItem = async () => {
     if (!newItem.ref.trim()) {
       alert('Informe a referência do item');
       return;
@@ -140,34 +157,21 @@ const Compras = ({ valves, user, stock = [], setStock, restockRequests = [] }) =
     const quantity = Math.max(0, Number(newItem.quantity || 0));
     const minQuantity = Math.max(0, Number(newItem.minQuantity || 0));
 
-    setStock((prev) => {
-      const idx = prev.findIndex((i) => i.ref.toLowerCase() === ref.toLowerCase());
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], brand, minQuantity, quantity: next[idx].quantity + quantity };
-        return next;
-      }
-      return [{ id: `${Date.now()}_${ref}`, ref, brand, quantity, minQuantity }, ...prev];
-    });
+    await addOrIncrementStock?.({ ref, brand, quantity, minQuantity });
 
     setNewItem({ ref: '', brand: defaultBrand, quantity: '', minQuantity: '1' });
   };
 
-  const changeQty = (id, diff) => {
-    setStock((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, quantity: Math.max(0, Number(item.quantity || 0) + diff) } : item
-      )
-    );
-  };
-
-  const removeItem = (id) => {
+  const removeItem = async (id) => {
     if (!confirm('Remover item do estoque?')) return;
-    setStock((prev) => prev.filter((item) => item.id !== id));
+    await removeStockItem?.(id);
   };
 
   const totalStock = stock.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  const lowStock = stock.filter((item) => Number(item.quantity || 0) <= Number(item.minQuantity || 0)).length;
+  const lowStock = stock.filter((item) => {
+    const min = Number(item.minQuantity ?? item.min_quantity ?? 0);
+    return Number(item.quantity || 0) <= min;
+  }).length;
 
   return (
     <div id="sc-compras" className="sc on" style={{ paddingBottom: '110px' }}>
@@ -302,16 +306,18 @@ const Compras = ({ valves, user, stock = [], setStock, restockRequests = [] }) =
           <div style={{ display: 'grid', gap: '8px' }}>
             {stock
               .slice()
-              .sort((a, b) => a.ref.localeCompare(b.ref))
+              .sort((a, b) => (a.ref || a.kit || '').localeCompare(b.ref || b.kit || ''))
               .map((item) => {
                 const qty = Number(item.quantity || 0);
-                const min = Number(item.minQuantity || 0);
+                const min = Number(item.minQuantity ?? item.min_quantity ?? 0);
+                const ref = item.ref || item.kit;
+                const brand = item.brand || item.location || 'Sem fabricante';
                 const low = qty <= min;
                 return (
                   <div key={item.id} className="kr" style={{ alignItems: 'center' }}>
                     <div>
-                      <div className="kc">{item.ref}</div>
-                      <div className="ki">{item.brand} · mínimo {min}</div>
+                      <div className="kc">{ref}</div>
+                      <div className="ki">{brand} · mínimo {min}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span className="kq" style={{ color: low ? 'var(--rd)' : 'var(--gn)' }}>
@@ -319,8 +325,8 @@ const Compras = ({ valves, user, stock = [], setStock, restockRequests = [] }) =
                       </span>
                       {canManageStock && (
                         <>
-                          <button className="btn btn-o" style={{ maxWidth: '30px' }} onClick={() => changeQty(item.id, -1)}>-</button>
-                          <button className="btn btn-g" style={{ maxWidth: '30px' }} onClick={() => changeQty(item.id, 1)}>+</button>
+                          <button className="btn btn-o" style={{ maxWidth: '30px' }} onClick={() => changeStockQuantity?.(item.id, -1)}>-</button>
+                          <button className="btn btn-g" style={{ maxWidth: '30px' }} onClick={() => changeStockQuantity?.(item.id, 1)}>+</button>
                           <button className="btn btn-o" style={{ maxWidth: '46px', color: 'var(--rd)' }} onClick={() => removeItem(item.id)}>🗑</button>
                         </>
                       )}

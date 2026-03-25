@@ -27,6 +27,14 @@ const isBrowser = typeof window !== 'undefined'
 const ls = (key) => isBrowser ? localStorage.getItem(key) : null
 const lsSet = (key, val) => isBrowser && localStorage.setItem(key, val)
 const lsRm = (key) => isBrowser && localStorage.removeItem(key)
+const safeParse = (value, fallback) => {
+  if (!value) return fallback
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
 
 function App() {
   // Auth — com verificação de expiração
@@ -48,11 +56,10 @@ function App() {
   const { records: history, addRecord: addMaintRecord } = useMaintenanceRecords()
   const { orders, addOrder, deleteOrder, updateOrderStatus } = useOrders()
   const { requests: restockRequests, addRequest: addRestockRequest, updateStatus: updateRestockStatus } = useRestockRequests()
-  const { stock, setStock } = useStock()
+  const { stock, addOrIncrementStock, changeStockQuantity, removeStockItem } = useStock()
 
   const [photos, setPhotos] = useState(() => {
-    const saved = ls('mp_photos')
-    return saved ? JSON.parse(saved) : {}
+    return safeParse(ls('mp_photos'), {})
   })
 
   // Status calc
@@ -194,7 +201,9 @@ function App() {
             valves={PLANT_DATA.valves}
             user={user}
             stock={stock}
-            setStock={setStock}
+            addOrIncrementStock={addOrIncrementStock}
+            changeStockQuantity={changeStockQuantity}
+            removeStockItem={removeStockItem}
             restockRequests={restockRequests}
           />
         )}

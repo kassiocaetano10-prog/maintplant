@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
+import { useLang } from '../i18n/LangContext';
 
 const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
+  const { t } = useLang();
   const [formData, setFormData] = useState({
     zona: zones[0] || '',
     valveTag: '',
@@ -27,7 +29,7 @@ const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
 
   const handleSubmit = () => {
     if (!formData.tecnico || !formData.data_programada) {
-      alert('Preencha os campos obrigatórios');
+      alert(t('fill_required_fields'));
       return;
     }
     onSave({
@@ -40,9 +42,9 @@ const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
   return (
     <div id="oform" className="on">
       <div className="fsh">
-        <div className="ftitle">⚡ Nova Ordem de Serviço</div>
+        <div className="ftitle">{t('new_order')}</div>
         <div className="ff">
-          <label className="fl">Zona</label>
+          <label className="fl">{t('zone_label')}</label>
           <select 
             className="fi" 
             value={formData.zona}
@@ -52,10 +54,10 @@ const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
           </select>
         </div>
         <div className="ff">
-          <label className="fl">Nº da válvula</label>
+          <label className="fl">{t('valve_number')}</label>
           <input
             className="fi"
-            placeholder="Ex: 2.30.4.16"
+            placeholder={t('valve_number_placeholder')}
             list="valve-tags-list"
             value={formData.valveTag}
             onChange={(e) => setFormData({ ...formData, valveTag: e.target.value })}
@@ -67,16 +69,16 @@ const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
           </datalist>
         </div>
         <div className="ff">
-          <label className="fl">Técnico responsável</label>
+          <label className="fl">{t('responsible_tech')}</label>
           <input 
             className="fi" 
-            placeholder="Nome do técnico"
+            placeholder={t('responsible_tech_placeholder')}
             value={formData.tecnico}
             onChange={(e) => setFormData({...formData, tecnico: e.target.value})}
           />
         </div>
         <div className="ff">
-          <label className="fl">Data programada</label>
+          <label className="fl">{t('scheduled_date')}</label>
           <input 
             className="fi" 
             type="date"
@@ -85,16 +87,16 @@ const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
           />
         </div>
         <div className="ff">
-          <label className="fl">Observações</label>
+          <label className="fl">{t('observations')}</label>
           <input 
             className="fi" 
-            placeholder="Prioridade, válvulas específicas..."
+            placeholder={t('order_notes_placeholder')}
             value={formData.obs}
             onChange={(e) => setFormData({...formData, obs: e.target.value})}
           />
         </div>
-        <button className="btn btn-p" onClick={handleSubmit} style={{ marginBottom: '8px' }}>Criar Ordem</button>
-        <button className="btn btn-o" onClick={onClose}>Cancelar</button>
+        <button className="btn btn-p" onClick={handleSubmit} style={{ marginBottom: '8px' }}>{t('create_order')}</button>
+        <button className="btn btn-o" onClick={onClose}>{t('cancel')}</button>
       </div>
     </div>
   );

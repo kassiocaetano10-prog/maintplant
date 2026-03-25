@@ -5,10 +5,66 @@ import { hashPassword } from './auth'
 const isBrowser = typeof window !== 'undefined'
 const ls = (key) => isBrowser ? localStorage.getItem(key) : null
 const lsSet = (key, val) => isBrowser && localStorage.setItem(key, val)
+const ENABLE_LOCAL_AUTH_FALLBACK = typeof process !== 'undefined' &&
+  process.env.NEXT_PUBLIC_ENABLE_LOCAL_AUTH_FALLBACK === 'true'
+const safeParse = (value, fallback) => {
+  if (!value) return fallback
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+const normalizeOrder = (row = {}) => ({
+  ...row,
+  zona: row.zona ?? row.zone ?? '',
+  zone: row.zone ?? row.zona ?? '',
+  valveTag: row.valveTag ?? row.valve_tag ?? '',
+  valve_tag: row.valve_tag ?? row.valveTag ?? '',
+  observacoes: row.observacoes ?? row.description ?? '',
+  description: row.description ?? row.observacoes ?? '',
+  createdBy: row.createdBy ?? row.created_by ?? '',
+  created_by: row.created_by ?? row.createdBy ?? ''
+})
+
+const normalizeRequest = (row = {}) => ({
+  ...row,
+  ref: row.ref ?? row.kit ?? '',
+  kit: row.kit ?? row.ref ?? '',
+  description: row.description ?? row.reason ?? '',
+  reason: row.reason ?? row.description ?? '',
+  suggestedBy: row.suggestedBy ?? row.suggested_by ?? row.created_by ?? '',
+  suggested_by: row.suggested_by ?? row.suggestedBy ?? row.created_by ?? '',
+  createdAt: row.createdAt ?? row.created_at ?? null,
+  created_at: row.created_at ?? row.createdAt ?? null
+})
+
+const normalizeStock = (row = {}) => ({
+  ...row,
+  ref: row.ref ?? row.kit ?? '',
+  kit: row.kit ?? row.ref ?? '',
+  minQuantity: row.minQuantity ?? row.min_quantity ?? 0,
+  min_quantity: row.min_quantity ?? row.minQuantity ?? 0,
+  brand: row.brand ?? row.location ?? 'Sem fabricante',
+  location: row.location ?? row.brand ?? 'Sem fabricante'
+})
 
 // ─── Login (com hash de senha) ───
 export async function loginUser(username, password) {
   const hashed = await hashPassword(password)
+
+  // Caminho mais seguro: RPC no banco (sem expor select direto na tabela users)
+  const { data: rpcData, error: rpcError } = await supabase.rpc('app_login', {
+    p_username: username,
+    p_password_hash: hashed,
+    p_password_plain: ENABLE_LOCAL_AUTH_FALLBACK ? password : null
+  })
+
+  if (!rpcError && rpcData) {
+    const user = Array.isArray(rpcData) ? rpcData[0] : rpcData
+    if (user) return user
+  }
 
   // Tentar com senha hash primeiro
   let { data, error } = await supabase
@@ -20,18 +76,19 @@ export async function loginUser(username, password) {
 
   if (!error && data) return data
 
-  // Fallback: tentar com senha em texto puro (migração)
-  ;({ data, error } = await supabase
-    .from('users')
-    .select('id, username, name, role')
-    .eq('username', username)
-    .eq('password', password)
-    .single())
+  if (ENABLE_LOCAL_AUTH_FALLBACK) {
+    // Fallback opcional para migração controlada
+    ;({ data, error } = await supabase
+      .from('users')
+      .select('id, username, name, role')
+      .eq('username', username)
+      .eq('password', password)
+      .single())
 
-  if (!error && data) {
-    // Migrar: atualizar para hash no Supabase
-    await supabase.from('users').update({ password: hashed }).eq('id', data.id)
-    return data
+    if (!error && data) {
+      await supabase.from('users').update({ password: hashed }).eq('id', data.id)
+      return data
+    }
   }
 
   return null
@@ -40,8 +97,7 @@ export async function loginUser(username, password) {
 // ─── Maintenance Records ───
 export function useMaintenanceRecords() {
   const [records, setRecords] = useState(() => {
-    const saved = ls('mp_history')
-    return saved ? JSON.parse(saved) : []
+    return safeParse(ls('mp_history'), [])
   })
   const [loading, setLoading] = useState(true)
 
@@ -111,8 +167,7 @@ export function useMaintenanceRecords() {
 // ─── Orders ───
 export function useOrders() {
   const [orders, setOrders] = useState(() => {
-    const saved = ls('mp_orders')
-    return saved ? JSON.parse(saved) : []
+    return safeParse(ls('mp_orders'), [])
   })
 
   useEffect(() => {
@@ -127,8 +182,9 @@ export function useOrders() {
         .order('created_at', { ascending: false })
 
       if (!error && data) {
-        setOrders(data)
-        lsSet('mp_orders', JSON.stringify(data))
+        const normalized = data.map(normalizeOrder)
+        setOrders(normalized)
+        lsSet('mp_orders', JSON.stringify(normalized))
       }
     } catch { /* offline */ }
   }
@@ -153,12 +209,12 @@ export function useOrders() {
 
     if (!error && data) {
       setOrders(prev => {
-        const updated = [data, ...prev]
+        const updated = [normalizeOrder(data), ...prev]
         lsSet('mp_orders', JSON.stringify(updated))
         return updated
       })
     } else {
-      const localOrder = { ...order, id: `os_${Date.now()}`, created_at: new Date().toISOString() }
+      const localOrder = normalizeOrder({ ...order, id: `os_${Date.now()}`, created_at: new Date().toISOString() })
       setOrders(prev => {
         const updated = [localOrder, ...prev]
         lsSet('mp_orders', JSON.stringify(updated))
@@ -191,8 +247,7 @@ export function useOrders() {
 // ─── Restock Requests ───
 export function useRestockRequests() {
   const [requests, setRequests] = useState(() => {
-    const saved = ls('mp_restock_requests')
-    return saved ? JSON.parse(saved) : []
+    return safeParse(ls('mp_restock_requests'), [])
   })
 
   useEffect(() => {
@@ -207,18 +262,21 @@ export function useRestockRequests() {
         .order('created_at', { ascending: false })
 
       if (!error && data) {
-        setRequests(data)
-        lsSet('mp_restock_requests', JSON.stringify(data))
+        const normalized = data.map(normalizeRequest)
+        setRequests(normalized)
+        lsSet('mp_restock_requests', JSON.stringify(normalized))
       }
     } catch { /* offline */ }
   }
 
   const addRequest = useCallback(async (payload) => {
     const row = {
-      kit: payload.ref || payload.kit || '',
-      ref: payload.ref || '',
-      description: payload.description || '',
-      suggested_by: payload.suggestedBy || payload.suggested_by || '',
+      kit: payload.kit || payload.ref || '',
+      ref: payload.ref || payload.kit || '',
+      reason: payload.reason || payload.description || '',
+      description: payload.description || payload.reason || '',
+      created_by: payload.suggestedBy || payload.suggested_by || payload.created_by || '',
+      suggested_by: payload.suggested_by || payload.suggestedBy || payload.created_by || '',
       status: 'pendente'
     }
 
@@ -229,17 +287,28 @@ export function useRestockRequests() {
       .single()
 
     if (!error && data) {
-      setRequests(prev => [data, ...prev])
+      setRequests(prev => {
+        const updated = [normalizeRequest(data), ...prev]
+        lsSet('mp_restock_requests', JSON.stringify(updated))
+        return updated
+      })
     } else {
-      console.log('Restock insert error:', error)
-      const local = { id: `rr_${Date.now()}`, status: 'pendente', created_at: new Date().toISOString(), ...payload }
-      setRequests(prev => [local, ...prev])
+      const local = normalizeRequest({ id: `rr_${Date.now()}`, status: 'pendente', created_at: new Date().toISOString(), ...payload })
+      setRequests(prev => {
+        const updated = [local, ...prev]
+        lsSet('mp_restock_requests', JSON.stringify(updated))
+        return updated
+      })
     }
   }, [])
 
   const updateStatus = useCallback(async (id, status) => {
     await supabase.from('restock_requests').update({ status }).eq('id', id)
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+    setRequests(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, status } : r)
+      lsSet('mp_restock_requests', JSON.stringify(updated))
+      return updated
+    })
   }, [])
 
   return { requests, addRequest, updateStatus, reload: loadRequests }
@@ -248,8 +317,7 @@ export function useRestockRequests() {
 // ─── Stock ───
 export function useStock() {
   const [stock, setStock] = useState(() => {
-    const saved = ls('mp_stock')
-    return saved ? JSON.parse(saved) : []
+    return safeParse(ls('mp_stock'), [])
   })
 
   useEffect(() => {
@@ -264,11 +332,75 @@ export function useStock() {
         .order('kit', { ascending: true })
 
       if (!error && data) {
-        setStock(data)
-        lsSet('mp_stock', JSON.stringify(data))
+        const normalized = data.map(normalizeStock)
+        setStock(normalized)
+        lsSet('mp_stock', JSON.stringify(normalized))
       }
     } catch { /* offline */ }
   }
 
-  return { stock, setStock, reload: loadStock }
+  const addOrIncrementStock = useCallback(async ({ ref, brand, quantity = 1, minQuantity = 1 }) => {
+    const normalizedRef = (ref || '').trim()
+    if (!normalizedRef) return
+    const current = stock.find((item) => (item.ref || '').toLowerCase() === normalizedRef.toLowerCase())
+    if (current) {
+      const nextQty = Math.max(0, Number(current.quantity || 0) + Number(quantity || 0))
+      const { data, error } = await supabase
+        .from('stock')
+        .update({
+          quantity: nextQty,
+          min_quantity: Number(minQuantity ?? current.minQuantity ?? current.min_quantity ?? 1),
+          location: brand || current.brand || current.location || 'Sem fabricante'
+        })
+        .eq('id', current.id)
+        .select()
+      if (!error && data?.[0]) {
+        const updated = stock.map((s) => (s.id === current.id ? normalizeStock(data[0]) : s))
+        setStock(updated)
+        lsSet('mp_stock', JSON.stringify(updated))
+        return
+      }
+      const fallbackUpdated = stock.map((s) => (s.id === current.id ? { ...s, quantity: nextQty } : s))
+      setStock(fallbackUpdated)
+      lsSet('mp_stock', JSON.stringify(fallbackUpdated))
+      return
+    }
+
+    const row = {
+      kit: normalizedRef,
+      quantity: Math.max(0, Number(quantity || 0)),
+      min_quantity: Math.max(0, Number(minQuantity || 0)),
+      location: brand || 'Sem fabricante'
+    }
+    const { data, error } = await supabase.from('stock').insert(row).select().single()
+    if (!error && data) {
+      const updated = [normalizeStock(data), ...stock]
+      setStock(updated)
+      lsSet('mp_stock', JSON.stringify(updated))
+      return
+    }
+    const local = normalizeStock({ id: `stk_${Date.now()}`, ...row })
+    const fallbackUpdated = [local, ...stock]
+    setStock(fallbackUpdated)
+    lsSet('mp_stock', JSON.stringify(fallbackUpdated))
+  }, [stock])
+
+  const changeStockQuantity = useCallback(async (id, diff) => {
+    const current = stock.find((item) => item.id === id)
+    if (!current) return
+    const nextQty = Math.max(0, Number(current.quantity || 0) + Number(diff || 0))
+    await supabase.from('stock').update({ quantity: nextQty }).eq('id', id)
+    const updated = stock.map((item) => (item.id === id ? { ...item, quantity: nextQty } : item))
+    setStock(updated)
+    lsSet('mp_stock', JSON.stringify(updated))
+  }, [stock])
+
+  const removeStockItem = useCallback(async (id) => {
+    await supabase.from('stock').delete().eq('id', id)
+    const updated = stock.filter((item) => item.id !== id)
+    setStock(updated)
+    lsSet('mp_stock', JSON.stringify(updated))
+  }, [stock])
+
+  return { stock, reload: loadStock, addOrIncrementStock, changeStockQuantity, removeStockItem }
 }
