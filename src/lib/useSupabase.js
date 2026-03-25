@@ -1,21 +1,40 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
+import { hashPassword } from './auth'
 
 const isBrowser = typeof window !== 'undefined'
 const ls = (key) => isBrowser ? localStorage.getItem(key) : null
 const lsSet = (key, val) => isBrowser && localStorage.setItem(key, val)
 
-// ─── Login ───
+// ─── Login (com hash de senha) ───
 export async function loginUser(username, password) {
-  const { data, error } = await supabase
+  const hashed = await hashPassword(password)
+
+  // Tentar com senha hash primeiro
+  let { data, error } = await supabase
+    .from('users')
+    .select('id, username, name, role')
+    .eq('username', username)
+    .eq('password', hashed)
+    .single()
+
+  if (!error && data) return data
+
+  // Fallback: tentar com senha em texto puro (migração)
+  ;({ data, error } = await supabase
     .from('users')
     .select('id, username, name, role')
     .eq('username', username)
     .eq('password', password)
-    .single()
+    .single())
 
-  if (error || !data) return null
-  return data
+  if (!error && data) {
+    // Migrar: atualizar para hash no Supabase
+    await supabase.from('users').update({ password: hashed }).eq('id', data.id)
+    return data
+  }
+
+  return null
 }
 
 // ─── Maintenance Records ───

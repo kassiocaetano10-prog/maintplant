@@ -21,17 +21,16 @@ import Notifications from './components/Notifications'
 import ReportPDF from './components/ReportPDF'
 import Login from './components/Login'
 
+import { getSession, clearSession } from './lib/auth'
+
 const isBrowser = typeof window !== 'undefined'
 const ls = (key) => isBrowser ? localStorage.getItem(key) : null
 const lsSet = (key, val) => isBrowser && localStorage.setItem(key, val)
 const lsRm = (key) => isBrowser && localStorage.removeItem(key)
 
 function App() {
-  // Auth
-  const [user, setUser] = useState(() => {
-    const saved = ls('mp_session')
-    return saved ? JSON.parse(saved) : null
-  })
+  // Auth — com verificação de expiração
+  const [user, setUser] = useState(() => getSession())
 
   // Views
   const [view, setView] = useState('dash')
@@ -91,9 +90,20 @@ function App() {
     alert(`✓ Manutenção registada com sucesso!\n\nVálvula: ${record.tag}\nTécnico: ${record.technician}`)
   }
 
+  // Verificar expiração da sessão a cada minuto
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const session = getSession()
+      if (!session && user) {
+        setUser(null)
+      }
+    }, 60000) // 1 minuto
+    return () => clearInterval(interval)
+  }, [user])
+
   // Handle logout
   const handleLogout = () => {
-    lsRm('mp_session')
+    clearSession()
     setUser(null)
   }
 

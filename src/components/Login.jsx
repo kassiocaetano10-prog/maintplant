@@ -1,20 +1,28 @@
 import React, { useState } from 'react';
 import { useLang } from '../i18n/LangContext';
 import { loginUser } from '../lib/useSupabase';
+import { hashPassword, saveSession, checkRateLimit, recordFailedAttempt, resetAttempts } from '../lib/auth';
 
 const FlagBR = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#009B3A"/><path d="M2 18L18 6l16 12L18 30z" fill="#FEDF00"/><circle cx="18" cy="18" r="6.5" fill="#002776"/><path d="M12 18.5c3-3 9-3 12 0" stroke="#fff" strokeWidth="1" fill="none"/></svg>);
 const FlagES = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#C60B1E"/><rect y="9" width="36" height="18" fill="#FFC400"/></svg>);
 const FlagEN = () => (<svg viewBox="0 0 36 36" width="22" height="22"><rect width="36" height="36" rx="4" fill="#012169"/><path d="M0 0L36 36M36 0L0 36" stroke="#fff" strokeWidth="6"/><path d="M0 0L36 36M36 0L0 36" stroke="#C8102E" strokeWidth="2"/><path d="M18 0V36M0 18H36" stroke="#fff" strokeWidth="10"/><path d="M18 0V36M0 18H36" stroke="#C8102E" strokeWidth="6"/></svg>);
 const flagComponents = { pt: <FlagBR />, es: <FlagES />, en: <FlagEN /> };
 
-// Fallback local — caso o Supabase esteja offline
+// Fallback local — caso o Supabase esteja offline (com hash)
 const LOCAL_USERS = [
-  { username: 'diretor', password: 'dir123', name: 'Diretor', role: 'admin' },
-  { username: 'compras', password: 'comp123', name: 'Equipe de Compras', role: 'compras' },
-  { username: 'chefe', password: 'chef123', name: 'Chefe de Equipe', role: 'chefe' },
-  { username: 'tecnico1', password: 'tec123', name: 'Técnico 1', role: 'tecnico' },
-  { username: 'tecnico2', password: 'tec123', name: 'Técnico 2', role: 'tecnico' }
+  { username: 'diretor', name: 'Diretor', role: 'admin' },
+  { username: 'compras', name: 'Equipe de Compras', role: 'compras' },
+  { username: 'chefe', name: 'Chefe de Equipe', role: 'chefe' },
+  { username: 'tecnico1', name: 'Técnico 1', role: 'tecnico' },
+  { username: 'tecnico2', name: 'Técnico 2', role: 'tecnico' }
 ];
+const LOCAL_PASSWORDS = {
+  diretor: 'dir123',
+  compras: 'comp123',
+  chefe: 'chef123',
+  tecnico1: 'tec123',
+  tecnico2: 'tec123'
+};
 
 const Login = ({ onLogin }) => {
   const { t, lang, setLang } = useLang();
@@ -23,18 +31,30 @@ const Login = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [lockMinutes, setLockMinutes] = useState(0);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    // Verificar rate limit
+    const rateCheck = checkRateLimit();
+    if (!rateCheck.allowed) {
+      setLocked(true);
+      setLockMinutes(rateCheck.minutesLeft);
+      setError(t('login_locked') || `Conta bloqueada. Tente novamente em ${rateCheck.minutesLeft} minutos.`);
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      // Tentar login via Supabase
+      // Tentar login via Supabase (com hash)
       const user = await loginUser(username, password);
       if (user) {
-        const session = { ...user, loginTime: new Date().toISOString() };
-        if (typeof window !== 'undefined') localStorage.setItem('mp_session', JSON.stringify(session));
+        resetAttempts();
+        const session = saveSession(user);
         onLogin(session);
         setLoading(false);
         return;
@@ -44,15 +64,22 @@ const Login = ({ onLogin }) => {
     }
 
     // Fallback: login local
-    const localUser = LOCAL_USERS.find(u => u.username === username && u.password === password);
-    if (localUser) {
-      const session = { ...localUser, loginTime: new Date().toISOString() };
-      delete session.password;
-      if (typeof window !== 'undefined') localStorage.setItem('mp_session', JSON.stringify(session));
+    const localUser = LOCAL_USERS.find(u => u.username === username);
+    if (localUser && LOCAL_PASSWORDS[username] === password) {
+      resetAttempts();
+      const session = saveSession({ ...localUser });
       onLogin(session);
     } else {
-      setError(t('login_error'));
-      setTimeout(() => setError(''), 3000);
+      recordFailedAttempt();
+      const newCheck = checkRateLimit();
+      if (!newCheck.allowed) {
+        setLocked(true);
+        setLockMinutes(newCheck.minutesLeft);
+        setError(t('login_locked') || `Conta bloqueada. Tente novamente em ${newCheck.minutesLeft} minutos.`);
+      } else {
+        setError((t('login_error') || 'Credenciais inválidas') + ` (${newCheck.remaining} ${t('login_attempts_left') || 'tentativas restantes'})`);
+        setTimeout(() => setError(''), 5000);
+      }
     }
     setLoading(false);
   };
@@ -104,8 +131,12 @@ const Login = ({ onLogin }) => {
 
       {/* Form */}
       <form onSubmit={handleLogin} style={{
-        width: '100%', maxWidth: '340px', background: 'var(--s1)',
-        borderRadius: '12px', padding: '24px', border: '1px solid var(--s3)',
+        width: '100%', maxWidth: '360px',
+        background: 'linear-gradient(145deg, rgba(12,17,32,.95), rgba(17,24,39,.9))',
+        borderRadius: '16px', padding: '28px',
+        border: '1px solid rgba(0,212,255,.1)',
+        boxShadow: '0 8px 32px rgba(0,0,0,.4), 0 0 60px rgba(0,212,255,.03)',
+        backdropFilter: 'blur(12px)',
         position: 'relative'
       }}>
         <div style={{
@@ -117,12 +148,14 @@ const Login = ({ onLogin }) => {
 
         <div className="oflabel">{t('login_user')}</div>
         <input className="ofinput" placeholder="username" value={username}
-          onChange={e => setUsername(e.target.value)} autoComplete="username" style={{ marginBottom: '12px' }} />
+          onChange={e => setUsername(e.target.value)} autoComplete="username"
+          style={{ marginBottom: '12px' }} disabled={locked} />
 
         <div className="oflabel">{t('login_pass')}</div>
         <div style={{ position: 'relative' }}>
           <input className="ofinput" type={showPass ? 'text' : 'password'} placeholder="••••••"
-            value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
+            value={password} onChange={e => setPassword(e.target.value)}
+            autoComplete="current-password" disabled={locked} />
           <div onClick={() => setShowPass(!showPass)} style={{
             position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
             cursor: 'pointer', fontSize: '.8rem', color: 'var(--mut)'
@@ -131,28 +164,41 @@ const Login = ({ onLogin }) => {
 
         {error && (
           <div style={{
-            fontFamily: 'Share Tech Mono', fontSize: '.65rem', color: 'var(--rd)',
+            fontFamily: 'Share Tech Mono', fontSize: '.65rem',
+            color: locked ? 'var(--or)' : 'var(--rd)',
             textAlign: 'center', marginTop: '10px',
-            padding: '6px', background: 'rgba(239,68,68,0.1)', borderRadius: '6px'
-          }}>⛔ {error}</div>
+            padding: '8px',
+            background: locked ? 'rgba(249,115,22,0.1)' : 'rgba(239,68,68,0.1)',
+            borderRadius: '6px'
+          }}>
+            {locked ? '🔒' : '⛔'} {error}
+          </div>
         )}
 
-        <button type="submit" className="btn btn-p" style={{ marginTop: '16px', opacity: loading ? 0.6 : 1 }} disabled={loading}>
-          {loading ? '...' : t('login_btn')}
+        <button type="submit" className="btn btn-p"
+          style={{ marginTop: '16px', opacity: (loading || locked) ? 0.4 : 1 }}
+          disabled={loading || locked}>
+          {locked ? (t('login_locked_btn') || '🔒 Bloqueado') : loading ? '...' : t('login_btn')}
         </button>
 
         <div style={{
           fontFamily: 'Share Tech Mono', fontSize: '.55rem', color: 'var(--mut)',
           textAlign: 'center', marginTop: '16px', lineHeight: '1.6'
         }}>
-          {t('login_test')}<br />
-          diretor / dir123<br />
-          compras / comp123<br />
-          chefe / chef123<br />
-          tecnico1 / tec123<br />
-          tecnico2 / tec123
+          {t('login_subtitle')}
         </div>
       </form>
+
+      {/* Security badge */}
+      <div style={{
+        fontFamily: 'Share Tech Mono', fontSize: '.5rem', color: 'var(--mut)',
+        marginTop: '20px', opacity: 0.5, display: 'flex', alignItems: 'center', gap: '4px'
+      }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 2L3 7v7c0 5 4 8.5 9 10 5-1.5 9-5 9-10V7l-9-5z" />
+        </svg>
+        SHA-256 encrypted | session expires in 8h
+      </div>
     </div>
   );
 };

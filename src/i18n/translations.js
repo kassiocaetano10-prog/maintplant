@@ -6,6 +6,10 @@ const translations = {
     login_pass: 'Senha',
     login_btn: 'Entrar',
     login_error: 'Utilizador ou senha incorretos',
+    login_locked: 'Conta bloqueada por tentativas excessivas. Aguarde',
+    login_locked_btn: '🔒 Bloqueado',
+    login_attempts_left: 'tentativas restantes',
+    login_session_expired: 'Sessão expirada. Faça login novamente.',
     login_test: 'Utilizadores de teste:',
     login_subtitle: 'GESTÃO DE MANUTENÇÃO INDUSTRIAL',
 
@@ -228,6 +232,10 @@ const translations = {
     login_pass: 'Contraseña',
     login_btn: 'Entrar',
     login_error: 'Usuario o contraseña incorrectos',
+    login_locked: 'Cuenta bloqueada por intentos excesivos. Espere',
+    login_locked_btn: '🔒 Bloqueado',
+    login_attempts_left: 'intentos restantes',
+    login_session_expired: 'Sesión expirada. Inicie sesión nuevamente.',
     login_test: 'Usuarios de prueba:',
     login_subtitle: 'GESTIÓN DE MANTENIMIENTO INDUSTRIAL',
 
@@ -433,6 +441,10 @@ const translations = {
     login_pass: 'Password',
     login_btn: 'Sign In',
     login_error: 'Incorrect username or password',
+    login_locked: 'Account locked due to too many attempts. Please wait',
+    login_locked_btn: '🔒 Locked',
+    login_attempts_left: 'attempts remaining',
+    login_session_expired: 'Session expired. Please log in again.',
     login_test: 'Test users:',
     login_subtitle: 'INDUSTRIAL MAINTENANCE MANAGEMENT',
 
