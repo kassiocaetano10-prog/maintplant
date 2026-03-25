@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 const Agenda = ({
   orders,
@@ -16,9 +16,22 @@ const Agenda = ({
   const [tab, setTab] = useState('orders');
   const [problemRef, setProblemRef] = useState('');
   const [problemDesc, setProblemDesc] = useState('');
+  const [problemName, setProblemName] = useState('');
   const canCreateOrder = user?.role === 'admin' || user?.role === 'chefe';
   const canManageRequests = user?.role === 'admin' || user?.role === 'chefe' || user?.role === 'compras';
   const isTech = user?.role === 'tecnico';
+
+  const valveTags = useMemo(() => {
+    return Array.from(new Set(
+      valves.map(v => (v?.tag || '').trim()).filter(Boolean)
+    )).sort((a, b) => a.localeCompare(b));
+  }, [valves]);
+
+  const valveSuggestions = useMemo(() => {
+    const q = problemRef.trim().toLowerCase();
+    if (!q) return valveTags.slice(0, 30);
+    return valveTags.filter(tag => tag.toLowerCase().includes(q)).slice(0, 30);
+  }, [problemRef, valveTags]);
 
   const delO = (id) => {
     if (confirm('Remover esta ordem?')) {
@@ -65,13 +78,13 @@ const Agenda = ({
                   <div key={o.id} className="oi">
                     <div className="oih">
                       <div>
-                        <div className="oiz">{o.zona}</div>
+                        <div className="oiz">{o.zona || o.zone}</div>
                         <div className="oid">{o.data_programada} · {o.tecnico}</div>
-                        {o.createdBy && (
-                          <div className="oid">Criada por: {o.createdBy}</div>
+                        {(o.createdBy || o.created_by) && (
+                          <div className="oid">Criada por: {o.createdBy || o.created_by}</div>
                         )}
-                        {o.valveTag && (
-                          <div className="oid">Válvula: {o.valveTag}</div>
+                        {(o.valveTag || o.valve_tag) && (
+                          <div className="oid">Válvula: {o.valveTag || o.valve_tag}</div>
                         )}
                       </div>
                       <span className={`bx ${sc}`}>{st}</span>
@@ -102,8 +115,15 @@ const Agenda = ({
             <div className="card" style={{ marginTop: '12px' }}>
               <div className="ctitle">🧩 Reportar peça com problema</div>
               <div className="ff">
+                <label className="fl">O seu nome</label>
+                <input className="fi" value={problemName} onChange={(e) => setProblemName(e.target.value)} placeholder="Ex: João Silva" />
+              </div>
+              <div className="ff">
                 <label className="fl">Referência da peça/kit</label>
-                <input className="fi" value={problemRef} onChange={(e) => setProblemRef(e.target.value)} placeholder="Ex: 2.30.4.16 / kit-xyz" />
+                <input className="fi" list="problem-valve-tags" value={problemRef} onChange={(e) => setProblemRef(e.target.value)} placeholder="Ex: 2.30.4.16 / kit-xyz" />
+                <datalist id="problem-valve-tags">
+                  {valveSuggestions.map(tag => <option key={tag} value={tag} />)}
+                </datalist>
               </div>
               <div className="ff">
                 <label className="fl">Descrição do problema</label>
@@ -112,14 +132,14 @@ const Agenda = ({
               <button
                 className="btn btn-p"
                 onClick={() => {
-                  if (!problemRef.trim() || !problemDesc.trim()) {
-                    alert('Preencha a referência e a descrição');
+                  if (!problemName.trim() || !problemRef.trim() || !problemDesc.trim()) {
+                    alert('Preencha o seu nome, a referência e a descrição');
                     return;
                   }
                   onCreateRestockRequest?.({
                     ref: problemRef.trim(),
                     description: problemDesc.trim(),
-                    suggestedBy: user?.name || 'Técnico'
+                    suggestedBy: problemName.trim()
                   });
                   setProblemRef('');
                   setProblemDesc('');
@@ -140,9 +160,9 @@ const Agenda = ({
                 restockRequests.map((req) => (
                   <div key={req.id} className="kr">
                     <div>
-                      <div className="kc">{req.ref}</div>
+                      <div className="kc">{req.ref || req.kit}</div>
                       <div className="ki">{req.description}</div>
-                      <div className="ki">Por: {req.suggestedBy} · {new Date(req.createdAt).toLocaleString('pt-BR')}</div>
+                      <div className="ki">Por: {req.suggestedBy || req.suggested_by} · {new Date(req.createdAt || req.created_at).toLocaleString('pt-BR')}</div>
                     </div>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <span className={`bx ${req.status === 'aprovada' ? 'ok' : req.status === 'rejeitada' ? 'cr' : 'wn'}`}>{req.status}</span>

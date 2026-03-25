@@ -142,19 +142,6 @@ function App() {
         user={user}
       />
 
-      {/* Zone selector - below topbar */}
-      <div style={{ padding: '0 12px', marginBottom: '4px' }}>
-        <select
-          className="zsel"
-          value={zone}
-          onChange={(e) => setZone(e.target.value)}
-          style={{ width: '100%' }}
-        >
-          <option value="">⬡ Todas as zonas</option>
-          {PLANT_DATA.zonas.map(z => <option key={z} value={z}>Zona {z}</option>)}
-        </select>
-      </div>
-
       <div id="content">
         {view === 'dash' && allowedViews.includes('dash') && (
           <Dashboard
@@ -174,6 +161,9 @@ function App() {
             vstatus={vstatus}
             onValveClick={setSelectedValve}
             photos={photos}
+            zone={zone}
+            setZone={setZone}
+            zones={PLANT_DATA.zonas}
           />
         )}
         {view === 'agenda' && allowedViews.includes('agenda') && (

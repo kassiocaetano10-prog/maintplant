@@ -135,12 +135,14 @@ export function useOrders() {
 
   const addOrder = useCallback(async (order) => {
     const row = {
-      zone: order.zone,
-      valve_tag: order.valve_tag || order.valveTag,
-      description: order.description,
+      zone: order.zone || order.zona || '',
+      valve_tag: order.valve_tag || order.valveTag || '',
+      description: order.description || order.obs || order.observacoes || '',
       priority: order.priority || 'normal',
       status: order.status || 'pendente',
-      created_by: order.createdBy || order.created_by
+      created_by: order.createdBy || order.created_by || '',
+      tecnico: order.tecnico || '',
+      data_programada: order.data_programada || null
     }
 
     const { data, error } = await supabase
@@ -212,15 +214,24 @@ export function useRestockRequests() {
   }
 
   const addRequest = useCallback(async (payload) => {
+    const row = {
+      kit: payload.ref || payload.kit || '',
+      ref: payload.ref || '',
+      description: payload.description || '',
+      suggested_by: payload.suggestedBy || payload.suggested_by || '',
+      status: 'pendente'
+    }
+
     const { data, error } = await supabase
       .from('restock_requests')
-      .insert(payload)
+      .insert(row)
       .select()
       .single()
 
     if (!error && data) {
       setRequests(prev => [data, ...prev])
     } else {
+      console.log('Restock insert error:', error)
       const local = { id: `rr_${Date.now()}`, status: 'pendente', created_at: new Date().toISOString(), ...payload }
       setRequests(prev => [local, ...prev])
     }
