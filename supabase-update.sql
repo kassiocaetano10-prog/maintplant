@@ -1,124 +1,15 @@
 -- ==========================================
--- MAINTPLANT - Schema do Supabase
--- Copiar e colar no SQL Editor do Supabase
+-- SCRIPT DE ATUALIZAÇÃO (RODAR NO SUPABASE)
+-- Resolve o erro "relation already exists"
 -- ==========================================
 
--- 1. Tabela de utilizadores
-CREATE TABLE users (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  username TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL,
-  name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'chefe', 'tecnico', 'compras')),
-  active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+-- 1. Atualizar senhas dos utilizadores (Hashes)
+UPDATE users SET password = '5aca47f8c551b5c4bd56aeebed20c143d30d989d4e9984a218ee3a739484f2f2' WHERE username = 'diretor';
+UPDATE users SET password = 'dce1543a2d5ff71f77adf81c3b4d2a74a6c53febb158f391400f446c9998dca4' WHERE username = 'compras';
+UPDATE users SET password = '2cb9f84a2ceef908f9e5a63d4ee19006d60639945f7c037e1987528ac8cc2e80' WHERE username = 'chefe';
+UPDATE users SET password = 'dcb66c57136a1c6f6aac1328c5cb9557f7481f25c18bda31f07c78cda274481f' WHERE username IN ('tecnico1', 'tecnico2');
 
--- 2. Tabela de registos de manutencao
-CREATE TABLE maintenance_records (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  tag TEXT NOT NULL,
-  date TIMESTAMPTZ DEFAULT now(),
-  technician TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('preventiva', 'corretiva')),
-  service TEXT,
-  kit_changed BOOLEAN DEFAULT false,
-  notes TEXT,
-  signature TEXT,
-  user_id UUID REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 3. Tabela de ordens de servico
-CREATE TABLE orders (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  zone TEXT,
-  valve_tag TEXT,
-  description TEXT,
-  priority TEXT DEFAULT 'normal',
-  status TEXT DEFAULT 'pendente',
-  created_by TEXT,
-  user_id UUID REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 4. Tabela de pedidos de restock
-CREATE TABLE restock_requests (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  kit TEXT,
-  quantity INT DEFAULT 1,
-  zone TEXT,
-  valve_tag TEXT,
-  reason TEXT,
-  status TEXT DEFAULT 'pendente',
-  created_by TEXT,
-  user_id UUID REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 5. Tabela de stock
-CREATE TABLE stock (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  kit TEXT NOT NULL,
-  quantity INT DEFAULT 0,
-  min_quantity INT DEFAULT 2,
-  location TEXT,
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- ==========================================
--- Inserir utilizadores iniciais
--- ==========================================
-INSERT INTO users (username, password, name, role) VALUES
-  ('diretor', '5aca47f8c551b5c4bd56aeebed20c143d30d989d4e9984a218ee3a739484f2f2', 'Diretor', 'admin'),
-  ('compras', 'dce1543a2d5ff71f77adf81c3b4d2a74a6c53febb158f391400f446c9998dca4', 'Equipe de Compras', 'compras'),
-  ('chefe', '2cb9f84a2ceef908f9e5a63d4ee19006d60639945f7c037e1987528ac8cc2e80', 'Chefe de Equipe', 'chefe'),
-  ('tecnico1', 'dcb66c57136a1c6f6aac1328c5cb9557f7481f25c18bda31f07c78cda274481f', 'Técnico 1', 'tecnico'),
-  ('tecnico2', 'dcb66c57136a1c6f6aac1328c5cb9557f7481f25c18bda31f07c78cda274481f', 'Técnico 2', 'tecnico');
-
--- ==========================================
--- Politicas de seguranca (RLS) — PRODUÇÃO
--- ==========================================
-
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE maintenance_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE restock_requests ENABLE ROW LEVEL SECURITY;
-ALTER TABLE stock ENABLE ROW LEVEL SECURITY;
-
--- USERS: bloqueado (login apenas via RPC)
-CREATE POLICY "users_deny_anon" ON users FOR ALL TO anon USING (false) WITH CHECK (false);
-
--- MAINTENANCE_RECORDS: leitura aberta, insert validado, sem delete (auditoria)
-CREATE POLICY "maint_select" ON maintenance_records FOR SELECT TO anon USING (true);
-CREATE POLICY "maint_insert" ON maintenance_records FOR INSERT TO anon WITH CHECK (
-  tag IS NOT NULL AND tag <> '' AND technician IS NOT NULL AND technician <> ''
-);
-
--- ORDERS: CRUD com validação
-CREATE POLICY "orders_select" ON orders FOR SELECT TO anon USING (true);
-CREATE POLICY "orders_insert" ON orders FOR INSERT TO anon WITH CHECK (
-  zone IS NOT NULL AND zone <> '' AND description IS NOT NULL AND description <> ''
-);
-CREATE POLICY "orders_update" ON orders FOR UPDATE TO anon USING (true) WITH CHECK (true);
-CREATE POLICY "orders_delete" ON orders FOR DELETE TO anon USING (true);
-
--- RESTOCK_REQUESTS: insert/update validados, sem delete
-CREATE POLICY "restock_select" ON restock_requests FOR SELECT TO anon USING (true);
-CREATE POLICY "restock_insert" ON restock_requests FOR INSERT TO anon WITH CHECK (
-  kit IS NOT NULL AND kit <> '' AND reason IS NOT NULL AND reason <> ''
-);
-CREATE POLICY "restock_update" ON restock_requests FOR UPDATE TO anon USING (true) WITH CHECK (true);
-
--- STOCK: CRUD com validação de quantidade
-CREATE POLICY "stock_select" ON stock FOR SELECT TO anon USING (true);
-CREATE POLICY "stock_insert" ON stock FOR INSERT TO anon WITH CHECK (kit IS NOT NULL AND kit <> '' AND quantity >= 0);
-CREATE POLICY "stock_update" ON stock FOR UPDATE TO anon USING (true) WITH CHECK (quantity >= 0);
-CREATE POLICY "stock_delete" ON stock FOR DELETE TO anon USING (true);
-
--- ==========================================
--- Função de login segura (SECURITY DEFINER)
--- ==========================================
+-- 2. Atualizar ou Criar a função de login
 CREATE OR REPLACE FUNCTION public.app_login(
   p_username TEXT, p_password_hash TEXT, p_password_plain TEXT DEFAULT NULL
 ) RETURNS TABLE (id UUID, username TEXT, name TEXT, role TEXT)
@@ -136,10 +27,8 @@ REVOKE ALL ON FUNCTION public.app_login(TEXT, TEXT, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.app_login(TEXT, TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.app_login(TEXT, TEXT, TEXT) TO authenticated;
 
--- ==========================================
--- 6. Tabela de válvulas (Migração Dinâmica)
--- ==========================================
-CREATE TABLE valves (
+-- 3. Criar a tabela de válvulas (se não existir)
+CREATE TABLE IF NOT EXISTS valves (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   zona TEXT,
   tag TEXT UNIQUE NOT NULL,
@@ -159,11 +48,12 @@ CREATE TABLE valves (
 );
 
 ALTER TABLE valves ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "valves_select" ON valves;
 CREATE POLICY "valves_select" ON valves FOR SELECT TO anon USING (true);
+DROP POLICY IF EXISTS "valves_all" ON valves;
 CREATE POLICY "valves_all" ON valves FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
-
--- Insert Valves from plantData.js
+-- 4. Inserir dados das válvulas (Ignora as que já existirem pra não dar erro)
 INSERT INTO valves (zona, tag, marca, serie, kit, assento, dn, tipo, ult_kit, ult_man, fabricacao, atuador, lote, mariposa) VALUES
   ('10', '10.30.2.0', 'GEA', '1484733-0030', '221-304.03', 'DOBLE S-S', 'DN65', 'assento_duplo', NULL, NULL, NULL, NULL, NULL, NULL),
   ('10', '10.30.2.1', 'GEA', NULL, '221-304.08', 'DOBLE SS-SS-S', 'DN65', 'assento_duplo', '2026-01-16', '2026-01-16', NULL, NULL, NULL, NULL),
@@ -721,4 +611,5 @@ INSERT INTO valves (zona, tag, marca, serie, kit, assento, dn, tipo, ult_kit, ul
   ('SILO LECHE  1.40', '1.39.0.2', 'GUTH  VENTILE', NULL, NULL, NULL, 'DN50', 'outro', NULL, NULL, NULL, NULL, NULL, 'SIMPLE S-S'),
   ('SILO LECHE  1.40', '1.40.2.0', 'GUTH  VENTILE', NULL, NULL, 'SIMPLE SS-S', 'DN65', 'assento_simples', NULL, NULL, NULL, NULL, NULL, NULL),
   ('SILO LECHE  1.40', '1.40.2.3', 'GUTH  VENTILE', NULL, NULL, NULL, 'DN50', 'outro', NULL, NULL, NULL, NULL, NULL, 'SIMPLE S-S'),
-  ('SILO LECHE  1.40', '1.40.2.2', 'GUTH  VENTILE', NULL, NULL, NULL, 'DN50', 'outro', NULL, NULL, NULL, NULL, NULL, 'SIMPLE S-S');
+  ('SILO LECHE  1.40', '1.40.2.2', 'GUTH  VENTILE', NULL, NULL, NULL, 'DN50', 'outro', NULL, NULL, NULL, NULL, NULL, 'SIMPLE S-S')
+ON CONFLICT (tag) DO NOTHING;

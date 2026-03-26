@@ -1,14 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useLang } from '../i18n/LangContext';
-
-const safeParse = (value, fallback) => {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-};
+import { safeParse } from '../lib/utils';
 
 const Compras = ({
   valves,
@@ -17,7 +9,9 @@ const Compras = ({
   addOrIncrementStock,
   changeStockQuantity,
   removeStockItem,
-  restockRequests = []
+  restockRequests = [],
+  showToast,
+  showConfirm
 }) => {
   const { t } = useLang();
   const canManageStock = user?.role === 'admin' || user?.role === 'compras' || user?.role === 'chefe';
@@ -81,7 +75,7 @@ const Compras = ({
   const copyEmail = (brand, email, kits) => {
     const lines = kits.map(k => '  → ' + k).join('\n');
     const txt = `Para: ${email}\nAssunto: Cotação Kits de Reparo — Manutenção Preventiva 2026\n\nPrezados,\n\nSomos uma empresa do setor lácteo e utilizamos equipamentos ${brand}.\nSolicitamos cotação de seal kits para manutenção preventiva semestral 2026:\n\n${lines}\n\nPedimos:\n- Preço unitário e por lote\n- Prazo de entrega para Espanha\n- Material EPDM food-grade\n\nAtenciosamente,\n[NOME] — [EMPRESA] — [TELEFONE]`;
-    navigator.clipboard.writeText(txt).then(() => alert('📧 E-mail copiado!'));
+    navigator.clipboard.writeText(txt).then(() => showToast?.('E-mail copiado!', 'success'));
   };
 
   const saveCart = (nextCart) => {
@@ -91,7 +85,7 @@ const Compras = ({
 
   const addToCart = ({ brand, ref, qty = 1, source = '' }) => {
     if (!brand || !ref) {
-      alert('Não foi possível adicionar: válvula sem kit de referência.');
+      showToast?.('Não foi possível adicionar: válvula sem kit de referência.', 'warning');
       return;
     }
     const key = `${brand}::${ref}`;
@@ -143,12 +137,12 @@ const Compras = ({
 
   const copyOrderText = (brand, items) => {
     const txt = buildOrderText(brand, items);
-    navigator.clipboard.writeText(txt).then(() => alert(`Pedido de ${brand} copiado!`));
+    navigator.clipboard.writeText(txt).then(() => showToast?.(`Pedido de ${brand} copiado!`, 'success'));
   };
 
   const upsertStockItem = async () => {
     if (!newItem.ref.trim()) {
-      alert('Informe a referência do item');
+      showToast?.('Informe a referência do item', 'warning');
       return;
     }
 
@@ -163,7 +157,10 @@ const Compras = ({
   };
 
   const removeItem = async (id) => {
-    if (!confirm('Remover item do estoque?')) return;
+    const ok = showConfirm
+      ? await showConfirm('Remover item do estoque?')
+      : window.confirm('Remover item do estoque?')
+    if (!ok) return;
     await removeStockItem?.(id);
   };
 

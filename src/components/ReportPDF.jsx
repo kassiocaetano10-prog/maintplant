@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ReportPDF = ({ valves, vstatus, zones, history, onClose }) => {
+const ReportPDF = ({ valves, vstatus, zones, history, onClose, showToast }) => {
   const [generating, setGenerating] = React.useState(false);
   const [reportType, setReportType] = React.useState('geral'); // geral | zona | valvula
 
@@ -198,7 +198,7 @@ const ReportPDF = ({ valves, vstatus, zones, history, onClose }) => {
       doc.save(`MaintPlant_Relatorio_${now.replace(/\//g, '-')}.pdf`);
     } catch (err) {
       console.error('Erro ao gerar PDF:', err);
-      alert('Erro ao gerar PDF. Tente novamente.');
+      showToast?.('Erro ao gerar PDF. Tente novamente.', 'error');
     }
     setGenerating(false);
   };

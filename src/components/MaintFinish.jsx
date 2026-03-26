@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import SignaturePad from './SignaturePad';
 import { useLang } from '../i18n/LangContext';
 
-const MaintFinish = ({ valve, onFinish, onCancel }) => {
+const MaintFinish = ({ valve, onFinish, onCancel, showToast }) => {
   const { t } = useLang();
   const [step, setStep] = useState('form');
   const [form, setForm] = useState({
@@ -10,7 +10,7 @@ const MaintFinish = ({ valve, onFinish, onCancel }) => {
   });
 
   const handleSign = () => {
-    if (!form.technician.trim()) { alert(t('fill_tech_name')); return; }
+    if (!form.technician.trim()) { showToast?.(t('fill_tech_name'), 'warning'); return; }
     setStep('signature');
   };
 

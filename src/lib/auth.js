@@ -1,7 +1,7 @@
 // ─── Auth Security Module ───
 // Handles password hashing, session expiration, and login rate limiting
 
-const isBrowser = typeof window !== 'undefined'
+import { isBrowser } from './utils'
 
 // ─── Password Hashing (SHA-256) ───
 export async function hashPassword(password) {

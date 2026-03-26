@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import './styles/main.scss'
 import { PLANT_DATA, VALVE_PHOTOS } from './data/plantData'
 import { LangProvider, useLang } from './i18n/LangContext'
-import { useMaintenanceRecords, useOrders, useRestockRequests, useStock } from './lib/useSupabase'
+import { useMaintenanceRecords, useOrders, useRestockRequests, useStock, useValves } from './lib/useSupabase'
 
 // Components
 import TopBar from './components/TopBar'
@@ -20,21 +20,11 @@ import MaintHistory from './components/MaintHistory'
 import Notifications from './components/Notifications'
 import ReportPDF from './components/ReportPDF'
 import Login from './components/Login'
+import Toast from './components/Toast'
+import ConfirmModal from './components/ConfirmModal'
 
 import { getSession, clearSession } from './lib/auth'
-
-const isBrowser = typeof window !== 'undefined'
-const ls = (key) => isBrowser ? localStorage.getItem(key) : null
-const lsSet = (key, val) => isBrowser && localStorage.setItem(key, val)
-const lsRm = (key) => isBrowser && localStorage.removeItem(key)
-const safeParse = (value, fallback) => {
-  if (!value) return fallback
-  try {
-    return JSON.parse(value)
-  } catch {
-    return fallback
-  }
-}
+import { ls, safeParse } from './lib/utils'
 
 function App() {
   // Auth — com verificação de expiração
@@ -53,6 +43,7 @@ function App() {
   const [showReport, setShowReport] = useState(false)
 
   // Data from Supabase (with localStorage fallback)
+  const { valves, loading: valvesLoading } = useValves()
   const { records: history, addRecord: addMaintRecord } = useMaintenanceRecords()
   const { orders, addOrder, deleteOrder, updateOrderStatus } = useOrders()
   const { requests: restockRequests, addRequest: addRestockRequest, updateStatus: updateRestockStatus } = useRestockRequests()
@@ -62,23 +53,53 @@ function App() {
     return safeParse(ls('mp_photos'), {})
   })
 
-  // Status calc
-  const vstatus = (v) => {
-    if (!v.ult_man) return 'crit'
-    const today = new Date()
-    const last = new Date(v.ult_man)
-    const diff = (today - last) / (1000 * 60 * 60 * 24)
-    return diff > 180 ? 'crit' : diff > 150 ? 'warn' : 'ok'
-  }
+  // Toast & Confirm Modal
+  const [toast, setToast] = useState(null)
+  const [confirmModal, setConfirmModal] = useState(null)
 
-  // Alert count
-  const alertCount = useMemo(() => {
-    return PLANT_DATA.valves.filter(v => vstatus(v) !== 'ok').length
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type })
   }, [])
+
+  const showConfirm = useCallback((message) => {
+    return new Promise((resolve) => {
+      setConfirmModal({
+        message,
+        onConfirm: () => { setConfirmModal(null); resolve(true) },
+        onCancel: () => { setConfirmModal(null); resolve(false) }
+      })
+    })
+  }, [])
+
+  // Derive zones dynamically from loaded valves (fallback plantData if none)
+  const activeZonas = useMemo(() => {
+    if (valves && valves.length > 0) {
+      return [...new Set(valves.map(v => v.zona))].filter(Boolean).sort()
+    }
+    return PLANT_DATA.zonas
+  }, [valves])
+
+  // Status calc — memoizado para evitar recriação de Date() em cada chamada
+  const todayMs = useMemo(() => Date.now(), [])
+  const MS_PER_DAY = 86400000
+
+  const vstatus = useMemo(() => {
+    return (v) => {
+      if (!v.ult_man) return 'crit'
+      const diff = (todayMs - new Date(v.ult_man).getTime()) / MS_PER_DAY
+      return diff > 180 ? 'crit' : diff > 150 ? 'warn' : 'ok'
+    }
+  }, [todayMs])
+
+  // Alert count — depende de vstatus
+  const alertCount = useMemo(() => {
+    return (valves || PLANT_DATA.valves).filter(v => vstatus(v) !== 'ok').length
+  }, [vstatus, valves])
 
   // Filtered valves
   const filteredValves = useMemo(() => {
-    return PLANT_DATA.valves.filter(v => {
+    const list = valves?.length > 0 ? valves : PLANT_DATA.valves;
+    return list.filter(v => {
       const matchesZone = !zone || v.zona === zone
       const q = search.toLowerCase()
       const matchesSearch = !q ||
@@ -94,7 +115,7 @@ function App() {
   const handleMaintFinish = async (record) => {
     await addMaintRecord(record)
     setShowFinish(null)
-    alert(`✓ Manutenção registada com sucesso!\n\nVálvula: ${record.tag}\nTécnico: ${record.technician}`)
+    showToast(`Manutenção registada: ${record.tag} — ${record.technician}`, 'success')
   }
 
   // Verificar expiração da sessão a cada minuto
@@ -141,7 +162,7 @@ function App() {
       <TopBar
         zone={zone}
         setZone={setZone}
-        zones={PLANT_DATA.zonas}
+        zones={activeZonas}
         alertCount={alertCount}
         onNotifications={() => setShowNotifications(true)}
         onReport={() => (user?.role === 'admin' || user?.role === 'chefe') && setShowReport(true)}
@@ -152,9 +173,9 @@ function App() {
       <div id="content">
         {view === 'dash' && allowedViews.includes('dash') && (
           <Dashboard
-            valves={PLANT_DATA.valves}
+            valves={valves?.length > 0 ? valves : PLANT_DATA.valves}
             vstatus={vstatus}
-            zones={PLANT_DATA.zonas}
+            zones={activeZonas}
             onZoneClick={(z) => { setZone(z); setView('valves'); }}
             history={history}
             user={user}
@@ -170,7 +191,7 @@ function App() {
             photos={photos}
             zone={zone}
             setZone={setZone}
-            zones={PLANT_DATA.zonas}
+            zones={activeZonas}
           />
         )}
         {view === 'agenda' && allowedViews.includes('agenda') && (
@@ -178,33 +199,37 @@ function App() {
             orders={orders}
             onDeleteOrder={deleteOrder}
             onUpdateOrderStatus={updateOrderStatus}
-            zones={PLANT_DATA.zonas}
+            zones={activeZonas}
             onNewOrder={() => setShowOrderForm(true)}
-            valves={PLANT_DATA.valves}
+            valves={valves?.length > 0 ? valves : PLANT_DATA.valves}
             vstatus={vstatus}
             user={user}
             restockRequests={restockRequests}
             onCreateRestockRequest={addRestockRequest}
             onUpdateRestockRequestStatus={updateRestockStatus}
+            showToast={showToast}
+            showConfirm={showConfirm}
           />
         )}
         {view === 'painel' && allowedViews.includes('painel') && (
           <Panel
-            valves={PLANT_DATA.valves}
+            valves={valves?.length > 0 ? valves : PLANT_DATA.valves}
             vstatus={vstatus}
-            zones={PLANT_DATA.zonas}
+            zones={activeZonas}
             orders={orders}
           />
         )}
         {view === 'compras' && allowedViews.includes('compras') && (
           <Compras
-            valves={PLANT_DATA.valves}
+            valves={valves?.length > 0 ? valves : PLANT_DATA.valves}
             user={user}
             stock={stock}
             addOrIncrementStock={addOrIncrementStock}
             changeStockQuantity={changeStockQuantity}
             removeStockItem={removeStockItem}
             restockRequests={restockRequests}
+            showToast={showToast}
+            showConfirm={showConfirm}
           />
         )}
       </div>
@@ -227,8 +252,9 @@ function App() {
       {showOrderForm && (user?.role === 'admin' || user?.role === 'chefe') && (
         <OrderForm
           onClose={() => setShowOrderForm(false)}
-          zones={PLANT_DATA.zonas}
-          valves={PLANT_DATA.valves}
+          zones={activeZonas}
+          valves={valves?.length > 0 ? valves : PLANT_DATA.valves}
+          showToast={showToast}
           onSave={(order) => {
             addOrder({
               ...order,
@@ -257,6 +283,7 @@ function App() {
           valve={showFinish}
           onFinish={handleMaintFinish}
           onCancel={() => setShowFinish(null)}
+          showToast={showToast}
         />
       )}
 
@@ -272,7 +299,7 @@ function App() {
       {/* Notifications */}
       {showNotifications && (
         <Notifications
-          valves={PLANT_DATA.valves}
+          valves={valves?.length > 0 ? valves : PLANT_DATA.valves}
           vstatus={vstatus}
           onClose={() => setShowNotifications(false)}
           onValveClick={(v) => { setShowNotifications(false); setSelectedValve(v); }}
@@ -282,11 +309,29 @@ function App() {
       {/* Report PDF */}
       {showReport && (user?.role === 'admin' || user?.role === 'chefe') && (
         <ReportPDF
-          valves={PLANT_DATA.valves}
+          valves={valves?.length > 0 ? valves : PLANT_DATA.valves}
           vstatus={vstatus}
-          zones={PLANT_DATA.zonas}
+          zones={activeZonas}
           history={history}
           onClose={() => setShowReport(false)}
+          showToast={showToast}
+        />
+      )}
+      {/* Toast notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Confirm modal */}
+      {confirmModal && (
+        <ConfirmModal
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={confirmModal.onCancel}
         />
       )}
     </div>

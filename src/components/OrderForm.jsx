@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useLang } from '../i18n/LangContext';
 
-const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
+const OrderForm = ({ onClose, zones, valves = [], onSave, showToast }) => {
   const { t } = useLang();
   const [formData, setFormData] = useState({
     zona: zones[0] || '',
@@ -29,7 +29,7 @@ const OrderForm = ({ onClose, zones, valves = [], onSave }) => {
 
   const handleSubmit = () => {
     if (!formData.tecnico || !formData.data_programada) {
-      alert(t('fill_required_fields'));
+      showToast?.(t('fill_required_fields'), 'warning');
       return;
     }
     onSave({

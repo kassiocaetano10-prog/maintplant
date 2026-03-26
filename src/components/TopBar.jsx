@@ -1,9 +1,11 @@
 import React from 'react';
 import LangSelector from './LangSelector';
 import { useLang } from '../i18n/LangContext';
+import { useOnlineStatus } from '../lib/useOnlineStatus';
 
 const TopBar = ({ zone, setZone, zones, alertCount, onNotifications, onReport, onLogout, user }) => {
   const { t } = useLang();
+  const online = useOnlineStatus();
 
   return (
     <div id="topbar">
@@ -19,6 +21,13 @@ const TopBar = ({ zone, setZone, zones, alertCount, onNotifications, onReport, o
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Online indicator */}
+        <div className={`online-indicator ${online ? 'online' : 'offline'}`}
+          title={online ? 'Online' : 'Offline — dados em cache'}>
+          <span className="online-dot" />
+          <span className="online-label">{online ? 'Online' : 'Offline'}</span>
+        </div>
+
         {/* Language */}
         <LangSelector />
 

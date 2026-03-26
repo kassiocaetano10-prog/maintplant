@@ -12,7 +12,9 @@ const Agenda = ({
   user,
   restockRequests = [],
   onCreateRestockRequest,
-  onUpdateRestockRequestStatus
+  onUpdateRestockRequestStatus,
+  showToast,
+  showConfirm
 }) => {
   const { t, lang } = useLang();
   const [tab, setTab] = useState('orders');
@@ -37,10 +39,11 @@ const Agenda = ({
     return valveTags.filter(tag => tag.toLowerCase().includes(q)).slice(0, 30);
   }, [problemRef, valveTags]);
 
-  const delO = (id) => {
-    if (confirm(t('confirm_delete_order'))) {
-      onDeleteOrder(id);
-    }
+  const delO = async (id) => {
+    const ok = showConfirm
+      ? await showConfirm(t('confirm_delete_order'))
+      : window.confirm(t('confirm_delete_order'))
+    if (ok) onDeleteOrder(id)
   };
 
   return (
@@ -139,7 +142,7 @@ const Agenda = ({
                 className="btn btn-p"
                 onClick={() => {
                   if (!problemName.trim() || !problemRef.trim() || !problemDesc.trim()) {
-                    alert(t('fill_name_ref_description'));
+                    showToast?.(t('fill_name_ref_description'), 'warning')
                     return;
                   }
                   onCreateRestockRequest?.({
@@ -149,7 +152,7 @@ const Agenda = ({
                   });
                   setProblemRef('');
                   setProblemDesc('');
-                  alert(t('restock_suggestion_sent'));
+                  showToast?.(t('restock_suggestion_sent'), 'success')
                 }}
               >
                 {t('send_restock_suggestion')}

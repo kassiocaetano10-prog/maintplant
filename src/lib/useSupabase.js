@@ -1,20 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 import { hashPassword } from './auth'
-
-const isBrowser = typeof window !== 'undefined'
-const ls = (key) => isBrowser ? localStorage.getItem(key) : null
-const lsSet = (key, val) => isBrowser && localStorage.setItem(key, val)
-const ENABLE_LOCAL_AUTH_FALLBACK = typeof process !== 'undefined' &&
-  process.env.NEXT_PUBLIC_ENABLE_LOCAL_AUTH_FALLBACK === 'true'
-const safeParse = (value, fallback) => {
-  if (!value) return fallback
-  try {
-    return JSON.parse(value)
-  } catch {
-    return fallback
-  }
-}
+import { ls, lsSet, safeParse } from './utils'
 
 const normalizeOrder = (row = {}) => ({
   ...row,
@@ -52,11 +39,13 @@ const normalizeStock = (row = {}) => ({
 
 // ─── Login ───
 export async function loginUser(username, password) {
-  // Tentar RPC com senha plain text (funciona sempre)
+  // Hashear password no cliente antes de enviar
+  const passwordHash = await hashPassword(password)
+
   const { data, error } = await supabase.rpc('app_login', {
     p_username: username,
-    p_password_hash: password,
-    p_password_plain: password
+    p_password_hash: passwordHash,
+    p_password_plain: password  // fallback para migração (remover após hashear BD)
   })
 
   if (!error && data) {
@@ -65,6 +54,26 @@ export async function loginUser(username, password) {
   }
 
   return null
+}
+
+// ─── Valves ───
+export function useValves() {
+  const [valves, setValves] = useState(() => safeParse(ls('mp_valves'), []))
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { loadValves() }, [])
+
+  const loadValves = async () => {
+    try {
+      const { data, error } = await supabase.from('valves').select('*')
+      if (!error && data) {
+        setValves(data)
+        lsSet('mp_valves', JSON.stringify(data))
+      }
+    } catch { /* offline */ }
+    setLoading(false)
+  }
+  return { valves, loading, reload: loadValves }
 }
 
 // ─── Maintenance Records ───

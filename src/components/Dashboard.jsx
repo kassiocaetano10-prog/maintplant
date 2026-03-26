@@ -21,80 +21,71 @@ const Dashboard = ({ valves, vstatus, zones, onZoneClick, history, user }) => {
   const maxBrand = topBrands[0]?.[1] || 1;
 
   const roleLabel =
-    user?.role === 'admin'
-      ? 'Diretor'
-      : user?.role === 'chefe'
-      ? 'Chefe de Equipe'
-      : user?.role === 'compras'
-      ? 'Equipe de Compras'
-      : t('technician');
+    user?.role === 'admin' ? 'Diretor'
+    : user?.role === 'chefe' ? 'Chefe de Equipe'
+    : user?.role === 'compras' ? 'Equipe de Compras'
+    : t('technician');
 
   return (
     <div id="sc-dash" className="sc on">
       {user && (
-        <div style={{
-          fontFamily: 'Share Tech Mono', fontSize: '.65rem', color: 'var(--mut)',
-          marginBottom: '10px', padding: '8px 12px', background: 'var(--s1)', borderRadius: '8px',
-          borderLeft: '3px solid var(--or)'
-        }}>
-          {t('welcome')}, <span style={{ color: 'var(--or)' }}>{user.name}</span> — {roleLabel}
+        <div className="dash-welcome">
+          {t('welcome')}, <span className="text-or">{user.name}</span> — {roleLabel}
         </div>
       )}
 
       <div className="stats">
         <div className="sbox">
-          <div className="snum" style={{ color: 'var(--cy)', textShadow: 'var(--gw-cy)' }}>{total}</div>
+          <div className="snum text-cy" style={{ textShadow: 'var(--gw-cy)' }}>{total}</div>
           <div className="slbl">{t('valves')}</div>
         </div>
         <div className="sbox">
-          <div className="snum" style={{ color: 'var(--gn)', textShadow: 'var(--gw-gn)' }}>{inDay}</div>
+          <div className="snum text-gn" style={{ textShadow: 'var(--gw-gn)' }}>{inDay}</div>
           <div className="slbl">{t('up_to_date')}</div>
         </div>
         <div className="sbox">
-          <div className="snum" style={{ color: 'var(--rd)', textShadow: 'var(--gw-rd)' }}>{critical}</div>
+          <div className="snum text-rd" style={{ textShadow: 'var(--gw-rd)' }}>{critical}</div>
           <div className="slbl">{t('critical')}</div>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '10px', padding: '12px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.6rem', color: 'var(--mut)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            {t('plant_health')}
-          </div>
-          <div style={{ fontFamily: 'Orbitron', fontWeight: 900, fontSize: '1rem', color: pctOk >= 80 ? 'var(--gn)' : pctOk >= 50 ? 'var(--yl)' : 'var(--rd)' }}>
+      <div className="card mb-10 p-12">
+        <div className="dash-health-header">
+          <div className="dash-health-label">{t('plant_health')}</div>
+          <div className="font-orbitron fw-900 fs-xl" style={{ color: pctOk >= 80 ? 'var(--gn)' : pctOk >= 50 ? 'var(--yl)' : 'var(--rd)' }}>
             {pctOk}%
           </div>
         </div>
-        <div style={{ height: '8px', background: 'var(--s3)', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
+        <div className="dash-health-bar">
           <div style={{ width: `${(inDay / total) * 100}%`, background: 'var(--gn)', transition: '0.5s' }} />
           <div style={{ width: `${(warn / total) * 100}%`, background: 'var(--yl)', transition: '0.5s' }} />
           <div style={{ width: `${(critical / total) * 100}%`, background: 'var(--rd)', transition: '0.5s' }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.5rem', color: 'var(--gn)' }}>● {inDay} {t('ok_label')}</div>
-          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.5rem', color: 'var(--yl)' }}>● {warn} {t('attention')}</div>
-          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.5rem', color: 'var(--rd)' }}>● {critical} {t('critical')}</div>
+        <div className="dash-health-legend">
+          <span className="text-gn">{'\u25CF'} {inDay} {t('ok_label')}</span>
+          <span className="text-yl">{'\u25CF'} {warn} {t('attention')}</span>
+          <span className="text-rd">{'\u25CF'} {critical} {t('critical')}</span>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-        <div className="card" style={{ padding: '10px', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'Orbitron', fontWeight: 900, fontSize: '1.1rem', color: 'var(--or)' }}>{recentMaint.length}</div>
-          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.5rem', color: 'var(--mut)' }}>{t('maint_7days')}</div>
+      <div className="dash-mini-grid">
+        <div className="card dash-mini-card">
+          <div className="font-orbitron fw-900 fs-2xl text-or">{recentMaint.length}</div>
+          <div className="font-mono fs-xs text-mut">{t('maint_7days')}</div>
         </div>
-        <div className="card" style={{ padding: '10px', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'Orbitron', fontWeight: 900, fontSize: '1.1rem', color: 'var(--cy2)' }}>{withKit}</div>
-          <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.5rem', color: 'var(--mut)' }}>{t('with_kit')}</div>
+        <div className="card dash-mini-card">
+          <div className="font-orbitron fw-900 fs-2xl" style={{ color: 'var(--cy2)' }}>{withKit}</div>
+          <div className="font-mono fs-xs text-mut">{t('with_kit')}</div>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '10px', padding: '12px' }}>
+      <div className="card mb-10 p-12">
         <div className="ctitle">{t('top_brands')}</div>
         {topBrands.map(([brand, count]) => (
-          <div key={brand} style={{ marginBottom: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.6rem', color: 'var(--txt2)' }}>{brand}</div>
-              <div style={{ fontFamily: 'Orbitron', fontSize: '.6rem', color: 'var(--cy)' }}>{count}</div>
+          <div key={brand} className="mb-6">
+            <div className="flex justify-between mb-6">
+              <div className="font-mono fs-sm text-txt2">{brand}</div>
+              <div className="font-orbitron fs-sm text-cy">{count}</div>
             </div>
             <div style={{ height: '4px', background: 'var(--s3)', borderRadius: '2px', overflow: 'hidden' }}>
               <div style={{ width: `${(count / maxBrand) * 100}%`, height: '100%', background: 'linear-gradient(90deg, var(--cy), var(--cy2))', borderRadius: '2px', transition: '0.5s' }} />
@@ -104,16 +95,15 @@ const Dashboard = ({ valves, vstatus, zones, onZoneClick, history, user }) => {
       </div>
 
       {recentMaint.length > 0 && (
-        <div className="card" style={{ marginBottom: '10px', padding: '12px' }}>
+        <div className="card mb-10 p-12">
           <div className="ctitle">{t('recent_maint')}</div>
           {recentMaint.slice(0, 5).map((h, i) => (
-            <div key={i} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            <div key={i} className="flex justify-between items-center" style={{
               padding: '6px 0', borderBottom: i < recentMaint.length - 1 ? '1px solid var(--s3)' : 'none'
             }}>
               <div>
-                <div style={{ fontFamily: 'Orbitron', fontSize: '.6rem', color: 'var(--cy)' }}>{h.tag}</div>
-                <div style={{ fontFamily: 'Share Tech Mono', fontSize: '.5rem', color: 'var(--mut)' }}>
+                <div className="font-orbitron fs-sm text-cy">{h.tag}</div>
+                <div className="font-mono fs-xs text-mut">
                   {h.technician} — {new Date(h.date).toLocaleDateString('pt-BR')}
                 </div>
               </div>
@@ -147,7 +137,7 @@ const Dashboard = ({ valves, vstatus, zones, onZoneClick, history, user }) => {
                   color: cr > 0 ? 'var(--rd)' : wn > 0 ? 'var(--yl)' : 'var(--gn)',
                   borderColor: cr > 0 ? 'rgba(239,68,68,.3)' : wn > 0 ? 'rgba(251,191,36,.3)' : 'rgba(34,197,94,.3)'
                 }}>
-                  {cr > 0 ? t('status_crit').replace('⛔ ', '') : wn > 0 ? t('status_warn').replace('⚠️ ', '') : t('ok_label')}
+                  {cr > 0 ? t('status_crit').replace('\u26D4 ', '') : wn > 0 ? t('status_warn').replace('\u26A0\uFE0F ', '') : t('ok_label')}
                 </div>
               </div>
               <div className="zbars">
